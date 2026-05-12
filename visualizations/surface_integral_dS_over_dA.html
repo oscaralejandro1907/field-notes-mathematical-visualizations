@@ -1,0 +1,275 @@
+
+<h2 class="sr-only">Interactive 3D diagram showing how a surface integral works: a curved surface S sits above a flat domain D in the xy-plane. A highlighted patch dS on the surface projects down via dashed lines to a flat rectangle dA in D, illustrating that dS = sqrt(1 + fx² + fy²) dA.</h2>
+<canvas id="cv" style="width:100%;height:460px;display:block;cursor:grab;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);"></canvas>
+<div style="display:flex;gap:14px;margin-top:11px;flex-wrap:wrap;align-items:center;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:13px;color:var(--color-text-secondary);">Rotate</label>
+    <input type="range" id="rot" min="0" max="360" value="200" step="1" style="width:110px;">
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:13px;color:var(--color-text-secondary);">Tilt</label>
+    <input type="range" id="tilt" min="15" max="70" value="32" step="1" style="width:110px;">
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:13px;color:var(--color-text-secondary);">Show normal</label>
+    <input type="checkbox" id="shownorm" checked style="cursor:pointer;">
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:13px;color:var(--color-text-secondary);">Show dashed walls</label>
+    <input type="checkbox" id="showwalls" checked style="cursor:pointer;">
+  </div>
+</div>
+<div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:inline-block;width:22px;height:9px;background:rgba(83,74,183,0.18);border:1px solid rgba(83,74,183,0.5);border-radius:2px;"></span> surface S
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:inline-block;width:22px;height:9px;background:rgba(29,158,117,0.18);border:1px solid rgba(15,110,86,0.5);border-radius:2px;"></span> domain D
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:inline-block;width:22px;height:9px;background:rgba(216,90,48,0.35);border:1px solid #D85A30;border-radius:2px;"></span> patch dS on S
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:inline-block;width:22px;height:9px;background:rgba(216,90,48,0.15);border:1px solid rgba(216,90,48,0.6);border-radius:2px;"></span> projection dA in D
+  </div>
+</div>
+<script>
+(function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const rotSl   = document.getElementById('rot');
+  const tiltSl  = document.getElementById('tilt');
+  const normCB  = document.getElementById('shownorm');
+  const wallsCB = document.getElementById('showwalls');
+
+  let W, H, SC;
+
+  function resize(){
+    const r = cv.getBoundingClientRect();
+    W = cv.width  = r.width  * devicePixelRatio;
+    H = cv.height = r.height * devicePixelRatio;
+    SC = Math.min(W,H) * 0.255;
+    draw();
+  }
+
+  const dark = matchMedia('(prefers-color-scheme:dark)').matches;
+  const axCol  = dark ? 'rgba(210,210,210,0.55)' : 'rgba(50,50,50,0.5)';
+  const labCol = dark ? 'rgba(225,225,225,0.9)'  : 'rgba(30,30,30,0.88)';
+  const gridCol= dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+
+  function f(x,y){ return 0.55 + 0.38*Math.cos(x*0.9 - 0.3)*Math.sin(y*0.7 + 0.5); }
+  function fx(x,y){ const e=0.001; return (f(x+e,y)-f(x-e,y))/(2*e); }
+  function fy(x,y){ const e=0.001; return (f(x,y+e)-f(x,y-e))/(2*e); }
+
+  function pr(x,y,z,rr,tr){
+    const cr=Math.cos(rr),sr=Math.sin(rr),ct=Math.cos(tr),st=Math.sin(tr);
+    const rx=x*cr-y*sr, ry=x*sr+y*cr;
+    const sy=ry*st+z*ct, sz=-ry*ct+z*st;
+    return { sx: rx*SC+W/2, sy: -sy*SC+H*0.52, depth: -sz };
+  }
+
+  const RANGE=2.1, N=20;
+
+  function buildGrid(){
+    const g=[];
+    for(let i=0;i<=N;i++){
+      const row=[];
+      for(let j=0;j<=N;j++){
+        const x=-RANGE+2*RANGE*i/N, y=-RANGE+2*RANGE*j/N;
+        row.push({x,y,z:f(x,y)});
+      }
+      g.push(row);
+    }
+    return g;
+  }
+  const grid = buildGrid();
+
+  const PI = Math.floor(N*0.52), PJ = Math.floor(N*0.48);
+
+  function norm3(v){ const l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); return l?[v[0]/l,v[1]/l,v[2]/l]:v; }
+
+  function draw(){
+    const rr = parseFloat(rotSl.value)*Math.PI/180;
+    const tr = parseFloat(tiltSl.value)*Math.PI/180;
+    const showNorm  = normCB.checked;
+    const showWalls = wallsCB.checked;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.font=`${Math.round(13*devicePixelRatio)}px sans-serif`;
+
+    const p = (x,y,z) => pr(x,y,z,rr,tr);
+
+    const DX = 2*RANGE/N, DY = 2*RANGE/N;
+    const px0 = -RANGE+DX*PI, py0=-RANGE+DY*PJ;
+    const px1 = px0+DX, py1=py0+DY;
+    const pxm=(px0+px1)/2, pym=(py0+py1)/2;
+
+    const domainCorners = [
+      [-RANGE,-RANGE],[ RANGE,-RANGE],[ RANGE, RANGE],[-RANGE, RANGE]
+    ];
+
+    const domainFace = domainCorners.map(([x,y])=>p(x,y,0));
+    ctx.beginPath();
+    ctx.moveTo(domainFace[0].sx,domainFace[0].sy);
+    for(let i=1;i<4;i++) ctx.lineTo(domainFace[i].sx,domainFace[i].sy);
+    ctx.closePath();
+    ctx.fillStyle = dark ? 'rgba(29,158,117,0.10)' : 'rgba(29,158,117,0.10)';
+    ctx.fill();
+    ctx.strokeStyle = dark ? 'rgba(15,110,86,0.45)' : 'rgba(15,110,86,0.4)';
+    ctx.lineWidth = 1*devicePixelRatio;
+    ctx.stroke();
+
+    for(let i=0;i<=N;i+=4){
+      const xi=-RANGE+2*RANGE*i/N;
+      const a=p(xi,-RANGE,0), b=p(xi,RANGE,0);
+      ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy);
+      ctx.strokeStyle=gridCol; ctx.lineWidth=0.6*devicePixelRatio; ctx.stroke();
+    }
+    for(let j=0;j<=N;j+=4){
+      const yj=-RANGE+2*RANGE*j/N;
+      const a=p(-RANGE,yj,0), b=p(RANGE,yj,0);
+      ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy);
+      ctx.strokeStyle=gridCol; ctx.lineWidth=0.6*devicePixelRatio; ctx.stroke();
+    }
+
+    const dAcorners = [[px0,py0],[px1,py0],[px1,py1],[px0,py1]].map(([x,y])=>p(x,y,0));
+    ctx.beginPath();
+    ctx.moveTo(dAcorners[0].sx,dAcorners[0].sy);
+    for(let i=1;i<4;i++) ctx.lineTo(dAcorners[i].sx,dAcorners[i].sy);
+    ctx.closePath();
+    ctx.fillStyle = dark ? 'rgba(216,90,48,0.22)' : 'rgba(216,90,48,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = '#D85A30';
+    ctx.lineWidth = 1.5*devicePixelRatio;
+    ctx.stroke();
+
+    const dAlabel = p(px1+0.05, py1+0.22, 0);
+    ctx.fillStyle='#993C1D';
+    ctx.font=`italic ${Math.round(13*devicePixelRatio)}px serif`;
+    ctx.fillText('dA', dAlabel.sx, dAlabel.sy);
+    ctx.font=`${Math.round(13*devicePixelRatio)}px sans-serif`;
+
+    if(showWalls){
+      const wallPairs = [
+        [px0,py0],[px1,py0],[px1,py1],[px0,py1]
+      ];
+      for(const [wx,wy] of wallPairs){
+        const bot=p(wx,wy,0), top=p(wx,wy,f(wx,wy));
+        ctx.beginPath(); ctx.moveTo(bot.sx,bot.sy); ctx.lineTo(top.sx,top.sy);
+        ctx.strokeStyle= dark?'rgba(216,90,48,0.55)':'rgba(216,90,48,0.5)';
+        ctx.lineWidth=1*devicePixelRatio;
+        ctx.setLineDash([4*devicePixelRatio,3*devicePixelRatio]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    const faces=[];
+    for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+      const pts=[
+        {x:grid[i][j].x,   y:grid[i][j].y,   z:grid[i][j].z},
+        {x:grid[i+1][j].x, y:grid[i+1][j].y, z:grid[i+1][j].z},
+        {x:grid[i+1][j+1].x,y:grid[i+1][j+1].y,z:grid[i+1][j+1].z},
+        {x:grid[i][j+1].x, y:grid[i][j+1].y, z:grid[i][j+1].z},
+      ];
+      const cx=(pts[0].x+pts[2].x)/2, cy=(pts[0].y+pts[2].y)/2, cz=f(cx,cy);
+      const {depth}=p(cx,cy,cz);
+      faces.push({pts,depth,i,j});
+    }
+    faces.sort((a,b)=>a.depth-b.depth);
+
+    for(const {pts,i,j} of faces){
+      const isHL = (i===PI&&j===PJ);
+      const corners=pts.map(q=>p(q.x,q.y,q.z));
+      ctx.beginPath();
+      ctx.moveTo(corners[0].sx,corners[0].sy);
+      for(let k=1;k<4;k++) ctx.lineTo(corners[k].sx,corners[k].sy);
+      ctx.closePath();
+      if(isHL){
+        ctx.fillStyle=dark?'rgba(216,90,48,0.55)':'rgba(216,90,48,0.40)';
+        ctx.fill();
+        ctx.strokeStyle='#D85A30';
+        ctx.lineWidth=2*devicePixelRatio;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle=dark?'rgba(83,74,183,0.13)':'rgba(83,74,183,0.10)';
+        ctx.fill();
+        ctx.strokeStyle=dark?'rgba(83,74,183,0.30)':'rgba(83,74,183,0.28)';
+        ctx.lineWidth=0.6*devicePixelRatio;
+        ctx.stroke();
+      }
+    }
+
+    const dSpt = p(pxm, pym, f(pxm,pym));
+    ctx.fillStyle='#993C1D';
+    ctx.font=`italic ${Math.round(13*devicePixelRatio)}px serif`;
+    ctx.fillText('dS', dSpt.sx+5*devicePixelRatio, dSpt.sy-8*devicePixelRatio);
+
+    const dotPt = p(pxm,pym,f(pxm,pym));
+    ctx.beginPath(); ctx.arc(dotPt.sx,dotPt.sy,3.5*devicePixelRatio,0,Math.PI*2);
+    ctx.fillStyle='#2C2C2A'; ctx.fill();
+
+    if(showNorm){
+      const fxv=fx(pxm,pym), fyv=fy(pxm,pym);
+      const n=norm3([-fxv,-fyv,1]);
+      const nlen=0.55;
+      const tip=p(pxm+n[0]*nlen, pym+n[1]*nlen, f(pxm,pym)+n[2]*nlen);
+      ctx.beginPath(); ctx.moveTo(dotPt.sx,dotPt.sy); ctx.lineTo(tip.sx,tip.sy);
+      ctx.strokeStyle=dark?'rgba(250,200,70,0.85)':'rgba(100,60,0,0.8)';
+      ctx.lineWidth=1.8*devicePixelRatio; ctx.stroke();
+      ctx.beginPath(); ctx.arc(tip.sx,tip.sy,3*devicePixelRatio,0,Math.PI*2);
+      ctx.fillStyle=dark?'rgba(250,200,70,0.9)':'rgba(100,60,0,0.85)'; ctx.fill();
+      ctx.fillStyle=dark?'rgba(250,200,70,0.95)':'rgba(80,45,0,0.9)';
+      ctx.font=`italic ${Math.round(12*devicePixelRatio)}px serif`;
+      ctx.fillText('n̂', tip.sx+5*devicePixelRatio, tip.sy-5*devicePixelRatio);
+    }
+
+    ctx.font=`${Math.round(13*devicePixelRatio)}px sans-serif`;
+    const AL=RANGE*1.18;
+    [ [AL,0,0,'x'], [0,AL,0,'y'], [0,0,AL*0.75,'z'] ].forEach(([ax,ay,az,lab])=>{
+      const o=p(0,0,0), e=p(ax,ay,az);
+      ctx.beginPath(); ctx.moveTo(o.sx,o.sy); ctx.lineTo(e.sx,e.sy);
+      ctx.strokeStyle=axCol; ctx.lineWidth=1.5*devicePixelRatio; ctx.stroke();
+      ctx.fillStyle=labCol;
+      ctx.font=`${Math.round(13*devicePixelRatio)}px sans-serif`;
+      ctx.fillText(lab, e.sx+6*devicePixelRatio, e.sy+4*devicePixelRatio);
+    });
+
+    const Slabel=p(-RANGE-0.1, RANGE*0.5, f(-RANGE-0.1,RANGE*0.5)+0.18);
+    ctx.fillStyle=dark?'#AFA9EC':'#534AB7';
+    ctx.font=`italic ${Math.round(16*devicePixelRatio)}px serif`;
+    ctx.fillText('S', Slabel.sx, Slabel.sy);
+
+    const Dlabel=p(-RANGE+0.15, -RANGE+0.22, 0);
+    ctx.fillStyle=dark?'#9FE1CB':'#0F6E56';
+    ctx.font=`italic ${Math.round(16*devicePixelRatio)}px serif`;
+    ctx.fillText('D', Dlabel.sx, Dlabel.sy);
+
+    ctx.fillStyle=dark?'rgba(180,180,180,0.6)':'rgba(80,80,80,0.6)';
+    ctx.font=`${Math.round(11*devicePixelRatio)}px sans-serif`;
+    ctx.fillText('drag to rotate', W*0.03, H*0.96);
+  }
+
+  let drag=false,lastX=0;
+  cv.addEventListener('mousedown',e=>{drag=true;lastX=e.clientX;cv.style.cursor='grabbing';});
+  cv.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    rotSl.value=((+rotSl.value+(e.clientX-lastX)*0.5)%360+360)%360;
+    lastX=e.clientX; draw();
+  });
+  cv.addEventListener('mouseup',  ()=>{drag=false;cv.style.cursor='grab';});
+  cv.addEventListener('mouseleave',()=>{drag=false;cv.style.cursor='grab';});
+  cv.addEventListener('touchstart',e=>{lastX=e.touches[0].clientX;});
+  cv.addEventListener('touchmove', e=>{
+    rotSl.value=((+rotSl.value+(e.touches[0].clientX-lastX)*0.5)%360+360)%360;
+    lastX=e.touches[0].clientX; draw(); e.preventDefault();
+  },{passive:false});
+
+  rotSl.addEventListener('input',draw);
+  tiltSl.addEventListener('input',draw);
+  normCB.addEventListener('change',draw);
+  wallsCB.addEventListener('change',draw);
+  window.addEventListener('resize',resize);
+  resize();
+})();
+</script>

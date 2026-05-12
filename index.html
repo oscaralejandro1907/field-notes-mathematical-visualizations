@@ -3,289 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surface Integral Visualization</title>
+    <title>Math & Physics Visualizations</title>
     <style>
+        /* These are the 'properties' you saw - they define your theme */
         :root {
             --color-text-primary: #1f2937;
-            --color-text-secondary: #4b5563;
-            --color-text-tertiary: #9ca3af;
             --color-border-tertiary: #e5e7eb;
             --border-radius-lg: 8px;
         }
         @media (prefers-color-scheme: dark) {
             :root {
                 --color-text-primary: #f9fafb;
-                --color-text-secondary: #d1d5db;
-                --color-text-tertiary: #9ca3af;
                 --color-border-tertiary: #374151;
             }
-            body {
-                background-color: #111827;
-                color: #f9fafb;
-            }
+            body { background-color: #111827; color: #f9fafb; }
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
+            font-family: -apple-system, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .proj-card {
+            border: 1px solid var(--color-border-tertiary);
             padding: 20px;
+            border-radius: var(--border-radius-lg);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: transform 0.2s;
         }
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border-width: 0;
-        }
+        .proj-card:hover { transform: translateY(-3px); }
     </style>
 </head>
 <body>
-    <h2 class="sr-only">Interactive 3D visualization of a surface integral: the surface S is divided into small patches, each colored by the value of f at that point, illustrating how the integral sums f times patch area dS over the whole surface.</h2>
-    <div style="width:100%;max-width:680px;margin:0 auto;">
-      <canvas id="cv" style="width:100%;height:430px;display:block;cursor:grab;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);"></canvas>
+    <h1>My Scientific Visualizations</h1>
+    <p>Select a topic to explore:</p>
 
-      <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;align-items:center;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <label style="font-size:13px;color:var(--color-text-secondary);">Rotate</label>
-          <input type="range" id="rot" min="0" max="360" value="210" step="1" style="width:100px;">
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <label style="font-size:13px;color:var(--color-text-secondary);">Tilt</label>
-          <input type="range" id="tilt" min="10" max="75" value="38" step="1" style="width:100px;">
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <label style="font-size:13px;color:var(--color-text-secondary);">Grid resolution</label>
-          <input type="range" id="res" min="4" max="18" value="10" step="1" style="width:100px;">
-          <span id="res-out" style="font-size:13px;font-weight:500;min-width:20px;color:var(--color-text-primary);">10</span>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <label style="font-size:13px;color:var(--color-text-secondary);">Show patch normals</label>
-          <input type="checkbox" id="normals" style="width:15px;height:15px;cursor:pointer;">
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <label style="font-size:13px;color:var(--color-text-secondary);">Highlight one patch</label>
-          <input type="checkbox" id="highlight" checked style="width:15px;height:15px;cursor:pointer;">
-        </div>
-      </div>
-
-      <div style="margin-top:14px;display:flex;align-items:center;gap:6px;">
-        <span style="font-size:12px;color:var(--color-text-secondary);">f low</span>
-        <div id="colorbar" style="flex:1;height:10px;border-radius:4px;background:linear-gradient(to right,#085041,#1D9E75,#9FE1CB,#EF9F27,#D85A30);"></div>
-        <span style="font-size:12px;color:var(--color-text-secondary);">f high</span>
-        <span style="font-size:12px;color:var(--color-text-tertiary);margin-left:8px;">color = f value · patch area dS → ∬<tspan>S</tspan> f dS</span>
-      </div>
-    </div>
-
-    <script>
-    (function(){
-      const cv = document.getElementById('cv');
-      const ctx = cv.getContext('2d');
-      const rotSl  = document.getElementById('rot');
-      const tiltSl = document.getElementById('tilt');
-      const resSl  = document.getElementById('res');
-      const resOut = document.getElementById('res-out');
-      const normalsCB   = document.getElementById('normals');
-      const highlightCB = document.getElementById('highlight');
-
-      let W, H, SC;
-
-      function resize(){
-        const r = cv.getBoundingClientRect();
-        W = cv.width  = r.width  * devicePixelRatio;
-        H = cv.height = r.height * devicePixelRatio;
-        SC = Math.min(W,H) * 0.27;
-        draw();
-      }
-
-      const dark = matchMedia('(prefers-color-scheme:dark)').matches;
-      const axCol  = dark ? 'rgba(210,210,210,0.5)' : 'rgba(60,60,60,0.45)';
-      const labCol = dark ? 'rgba(220,220,220,0.85)' : 'rgba(40,40,40,0.85)';
-
-      function f(x,y){
-        return 0.42*(Math.sin(x*1.3+0.4)*Math.cos(y*1.1) + Math.cos(x*0.7)*Math.sin(y*1.4+0.5)) + 0.55;
-      }
-
-      function pr(x,y,z,rr,tr){
-        const cr=Math.cos(rr),sr=Math.sin(rr),ct=Math.cos(tr),st=Math.sin(tr);
-        const rx=x*cr - y*sr, ry=x*sr + y*cr, rz=z;
-        const sy=ry*st + rz*ct;
-        const sz=-ry*ct + rz*st;
-        return { sx: rx*SC + W/2, sy: -sy*SC + H*0.50, depth: -sz };
-      }
-
-      function colorForValue(v, lo, hi){
-        const t = Math.max(0, Math.min(1, (v-lo)/(hi-lo)));
-        const stops = [
-          [8,80,65],   // #085041 teal dark
-          [29,158,117],// #1D9E75 teal mid
-          [159,225,203],// #9FE1CB teal light
-          [239,159,39],// #EF9F27 amber
-          [216,90,48]  // #D85A30 coral
-        ];
-        const seg = t * (stops.length-1);
-        const i = Math.min(Math.floor(seg), stops.length-2);
-        const u = seg - i;
-        const a = stops[i], b = stops[i+1];
-        const r = Math.round(a[0]+(b[0]-a[0])*u);
-        const g = Math.round(a[1]+(b[1]-a[1])*u);
-        const bv= Math.round(a[2]+(b[2]-a[2])*u);
-        return [r,g,bv];
-      }
-
-      const RANGE = 2.0;
-
-      function buildFaces(N){
-        const faces = [];
-        let lo=Infinity, hi=-Infinity;
-        for(let i=0;i<N;i++) for(let j=0;j<N;j++){
-          const x0=-RANGE+(2*RANGE*i/N), x1=-RANGE+(2*RANGE*(i+1)/N);
-          const y0=-RANGE+(2*RANGE*j/N), y1=-RANGE+(2*RANGE*(j+1)/N);
-          const xm=(x0+x1)/2, ym=(y0+y1)/2;
-          const fv = f(xm,ym);
-          if(fv<lo) lo=fv; if(fv>hi) hi=fv;
-          faces.push({x0,x1,y0,y1,xm,ym,fv,i,j});
-        }
-        return {faces,lo,hi};
-      }
-
-      function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
-      function norm(v){ const l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); return l>0?[v[0]/l,v[1]/l,v[2]/l]:v; }
-
-      function draw(){
-        const rr = parseFloat(rotSl.value)*Math.PI/180;
-        const tr = parseFloat(tiltSl.value)*Math.PI/180;
-        const N  = parseInt(resSl.value);
-        const showNormals   = normalsCB.checked;
-        const showHighlight = highlightCB.checked;
-
-        ctx.clearRect(0,0,W,H);
-        ctx.font = `${Math.round(13*devicePixelRatio)}px sans-serif`;
-
-        const {faces,lo,hi} = buildFaces(N);
-
-        const mid = Math.floor(N/2);
-
-        const projected = faces.map(fc => {
-          const p00 = pr(fc.x0,fc.y0,f(fc.x0,fc.y0),rr,tr);
-          const p10 = pr(fc.x1,fc.y0,f(fc.x1,fc.y0),rr,tr);
-          const p11 = pr(fc.x1,fc.y1,f(fc.x1,fc.y1),rr,tr);
-          const p01 = pr(fc.x0,fc.y1,f(fc.x0,fc.y1),rr,tr);
-          const depth = (p00.depth+p10.depth+p11.depth+p01.depth)/4;
-          return {...fc, p00,p10,p11,p01, depth};
-        });
-
-        projected.sort((a,b)=>a.depth-b.depth);
-
-        for(const fc of projected){
-          const isHL = showHighlight && fc.i===mid && fc.j===mid+1;
-          const [r,g,bv] = colorForValue(fc.fv,lo,hi);
-          const alpha = isHL ? 1.0 : 0.82;
-
-          ctx.beginPath();
-          ctx.moveTo(fc.p00.sx,fc.p00.sy);
-          ctx.lineTo(fc.p10.sx,fc.p10.sy);
-          ctx.lineTo(fc.p11.sx,fc.p11.sy);
-          ctx.lineTo(fc.p01.sx,fc.p01.sy);
-          ctx.closePath();
-
-          if(isHL){
-            ctx.fillStyle = `rgba(215,90,48,0.7)`;
-            ctx.fill();
-            ctx.strokeStyle = '#D85A30';
-            ctx.lineWidth = 2.5*devicePixelRatio;
-            ctx.stroke();
-          } else {
-            ctx.fillStyle = `rgba(${r},${g},${bv},${alpha})`;
-            ctx.fill();
-            ctx.strokeStyle = dark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.35)';
-            ctx.lineWidth = 0.7*devicePixelRatio;
-            ctx.stroke();
-          }
-
-          if(showNormals){
-            const xm=fc.xm, ym=fc.ym, zm=f(xm,ym);
-            const eps=0.05;
-            const fx=(f(xm+eps,ym)-f(xm-eps,ym))/(2*eps);
-            const fy=(f(xm,ym+eps)-f(xm,ym-eps))/(2*eps);
-            const n = norm([-fx,-fy,1]);
-            const len = 0.22;
-            const base = pr(xm,ym,zm,rr,tr);
-            const tip  = pr(xm+n[0]*len, ym+n[1]*len, zm+n[2]*len, rr, tr);
-            ctx.beginPath();
-            ctx.moveTo(base.sx,base.sy);
-            ctx.lineTo(tip.sx,tip.sy);
-            ctx.strokeStyle = dark ? 'rgba(255,220,80,0.7)' : 'rgba(140,90,0,0.75)';
-            ctx.lineWidth = 1.2*devicePixelRatio;
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(tip.sx,tip.sy,2.5*devicePixelRatio,0,Math.PI*2);
-            ctx.fillStyle = dark ? 'rgba(255,220,80,0.9)' : 'rgba(140,90,0,0.85)';
-            ctx.fill();
-          }
-        }
-
-        if(showHighlight){
-          const fc = projected.find(f=>f.i===mid&&f.j===mid+1);
-          if(fc){
-            const cx=(fc.p00.sx+fc.p10.sx+fc.p11.sx+fc.p01.sx)/4;
-            const cy=(fc.p00.sy+fc.p10.sy+fc.p11.sy+fc.p01.sy)/4 - 18*devicePixelRatio;
-            ctx.fillStyle='#D85A30';
-            ctx.font=`${Math.round(12*devicePixelRatio)}px sans-serif`;
-            ctx.textAlign='center';
-            ctx.fillText('f · dS',cx,cy);
-            ctx.textAlign='left';
-          }
-        }
-
-        const AL=RANGE*1.18;
-        [[AL,0,0,'x'],[0,AL,0,'y'],[0,0,AL*0.72,'z']].forEach(([ax,ay,az,lab])=>{
-          const o=pr(0,0,0,rr,tr), e=pr(ax,ay,az,rr,tr);
-          ctx.beginPath(); ctx.moveTo(o.sx,o.sy); ctx.lineTo(e.sx,e.sy);
-          ctx.strokeStyle=axCol; ctx.lineWidth=1.5*devicePixelRatio; ctx.stroke();
-          ctx.fillStyle=labCol;
-          ctx.font=`${Math.round(13*devicePixelRatio)}px sans-serif`;
-          ctx.fillText(lab, e.sx+6*devicePixelRatio, e.sy+4*devicePixelRatio);
-        });
-
-        ctx.fillStyle=labCol;
-        ctx.font=`${Math.round(12*devicePixelRatio)}px sans-serif`;
-        ctx.fillText('S', W*0.06, H*0.12);
-
-        ctx.fillStyle = dark ? 'rgba(180,180,180,0.7)' : 'rgba(70,70,70,0.75)';
-        ctx.font=`${Math.round(11*devicePixelRatio)}px sans-serif`;
-        ctx.fillText('drag to rotate', W*0.04, H*0.95);
-      }
-
-      let drag=false, lastX=0;
-      cv.addEventListener('mousedown', e=>{ drag=true; lastX=e.clientX; cv.style.cursor='grabbing'; });
-      cv.addEventListener('mousemove', e=>{
-        if(!drag) return;
-        rotSl.value=((+rotSl.value+(e.clientX-lastX)*0.5)%360+360)%360;
-        lastX=e.clientX; draw();
-      });
-      cv.addEventListener('mouseup',  ()=>{ drag=false; cv.style.cursor='grab'; });
-      cv.addEventListener('mouseleave',()=>{ drag=false; cv.style.cursor='grab'; });
-      cv.addEventListener('touchstart', e=>{ lastX=e.touches[0].clientX; });
-      cv.addEventListener('touchmove',  e=>{
-        rotSl.value=((+rotSl.value+(e.touches[0].clientX-lastX)*0.5)%360+360)%360;
-        lastX=e.touches[0].clientX; draw(); e.preventDefault();
-      },{passive:false});
-
-      rotSl.addEventListener('input', draw);
-      tiltSl.addEventListener('input', draw);
-      resSl.addEventListener('input', ()=>{ resOut.textContent=resSl.value; draw(); });
-      normalsCB.addEventListener('change', draw);
-      highlightCB.addEventListener('change', draw);
-
-      window.addEventListener('resize', resize);
-      resize();
-    })();
-    </script>
+    <a href="visualizations/surface_integral_dS_over_dA.html" class="proj-card">
+        <h3>Surface Integral: dS over dA</h3>
+        <p>Interactive 3D diagram showing surface projection onto the xy-plane.</p>
+    </a>
 </body>
 </html>
