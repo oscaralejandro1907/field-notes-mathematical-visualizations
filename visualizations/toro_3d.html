@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toro Parametrizado</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=JetBrains+Mono:wght@300;400&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #11111a;
+    --border: #1e1e2e;
+    --accent: #c8a96e;
+    --accent2: #7eb8c8;
+    --text: #e8e4dc;
+    --muted: #6b6880;
+    --formula: #d4c4a8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.6;
+  }
+
+  header {
+    padding: 2rem 3rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 2rem;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  header span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Canvas area */
+  #canvas-wrap {
+    position: relative;
+    background: radial-gradient(ellipse at 40% 50%, #0f1525 0%, var(--bg) 70%);
+    animation: fadeIn 1s ease 0.3s both;
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .canvas-label {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .canvas-label span { display: flex; align-items: center; gap: 0.4rem; }
+  .canvas-label i {
+    display: inline-block; width: 16px; height: 2px;
+    background: var(--accent); opacity: 0.6;
+  }
+
+  /* Side panel */
+  aside {
+    border-left: 1px solid var(--border);
+    padding: 2rem 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    overflow-y: auto;
+    animation: fadeLeft 0.8s ease 0.5s both;
+    background: var(--panel);
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+  }
+
+  .formula-block {
+    background: #0d0d16;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem;
+  }
+
+  .formula-block .eq {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--formula);
+    line-height: 2.2;
+    letter-spacing: 0.03em;
+  }
+
+  .formula-block .eq .var { color: var(--accent2); }
+  .formula-block .eq .fn  { color: var(--accent); }
+  .formula-block .eq .num { color: #a8d4a8; }
+
+  .domain {
+    margin-top: 0.8rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.9;
+  }
+
+  /* Result box */
+  .result-box {
+    background: linear-gradient(135deg, #1a1408 0%, #0d1018 100%);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1.4rem;
+    text-align: center;
+  }
+
+  .result-box .area-label {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  .result-box .area-value {
+    font-size: 2.2rem;
+    font-weight: 300;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .result-box .area-exact {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--formula);
+    font-style: italic;
+  }
+
+  .result-box .area-numeric {
+    margin-top: 0.3rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* Controls */
+  .controls { display: flex; flex-direction: column; gap: 1.2rem; }
+
+  .ctrl-row { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .ctrl-row label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .ctrl-row label span { color: var(--accent2); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    border-radius: 1px;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .toggle-row {
+    display: flex; gap: 0.6rem; flex-wrap: wrap;
+  }
+
+  .btn-toggle {
+    flex: 1;
+    padding: 0.5rem 0.3rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+
+  .btn-toggle.active, .btn-toggle:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #1a1408;
+  }
+
+  /* Params info */
+  .params-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+
+  .param-card {
+    background: #0d0d16;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.7rem;
+    text-align: center;
+  }
+
+  .param-card .p-val {
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: var(--accent2);
+  }
+
+  .param-card .p-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 0.2rem;
+  }
+
+  /* Animations */
+  @keyframes fadeDown  { from { opacity:0; transform: translateY(-12px); } to { opacity:1; transform: none; } }
+  @keyframes fadeLeft  { from { opacity:0; transform: translateX(12px);  } to { opacity:1; transform: none; } }
+  @keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
+    aside { border-left: none; border-top: 1px solid var(--border); }
+    header { padding: 1.2rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Superficie Parametrizada</h1>
+  <span>Toro · R=2, r=1</span>
+</header>
+
+<div class="layout">
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="canvas-label">
+      <span><i></i>Arrastra para rotar</span>
+      <span><i style="background:var(--accent2)"></i>Scroll para zoom</span>
+    </div>
+  </div>
+
+  <aside>
+    <!-- Formulae -->
+    <div>
+      <div class="section-label">Parametrización</div>
+      <div class="formula-block">
+        <div class="eq">
+          <span class="var">x</span> = (<span class="num">2</span> + <span class="fn">cos</span>(<span class="var">u</span>)) <span class="fn">cos</span>(<span class="var">v</span>)<br>
+          <span class="var">y</span> = (<span class="num">2</span> + <span class="fn">cos</span>(<span class="var">u</span>)) <span class="fn">sen</span>(<span class="var">v</span>)<br>
+          <span class="var">z</span> = <span class="fn">sen</span>(<span class="var">u</span>)
+        </div>
+        <div class="domain">
+          0 ≤ u ≤ 2π<br>
+          0 ≤ v ≤ 2π
+        </div>
+      </div>
+    </div>
+
+    <!-- Params -->
+    <div>
+      <div class="section-label">Parámetros del toro</div>
+      <div class="params-grid">
+        <div class="param-card">
+          <div class="p-val">2</div>
+          <div class="p-lbl">Radio mayor R</div>
+        </div>
+        <div class="param-card">
+          <div class="p-val">1</div>
+          <div class="p-lbl">Radio menor r</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-box">
+      <div class="area-label">Área de la superficie</div>
+      <div class="area-value">8π²</div>
+      <div class="area-exact">A = (2πR)(2πr)</div>
+      <div class="area-numeric">≈ 78.957 unidades²</div>
+    </div>
+
+    <!-- Controls -->
+    <div>
+      <div class="section-label">Controles de visualización</div>
+      <div class="controls">
+
+        <div class="ctrl-row">
+          <label>Velocidad de rotación <span id="spd-val">0.4</span></label>
+          <input type="range" id="spd" min="0" max="2" step="0.1" value="0.4">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Detalle de malla <span id="seg-val">40</span></label>
+          <input type="range" id="seg" min="12" max="80" step="4" value="40">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Opacidad <span id="opa-val">1.0</span></label>
+          <input type="range" id="opa" min="0.2" max="1" step="0.05" value="1">
+        </div>
+
+        <div class="toggle-row">
+          <button class="btn-toggle active" id="btn-solid">Sólido</button>
+          <button class="btn-toggle" id="btn-wire">Malla</button>
+          <button class="btn-toggle" id="btn-both">Ambos</button>
+        </div>
+
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── Scene setup ──────────────────────────────────────────────────────────────
+const wrap   = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('c');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene  = new THREE.Scene();
+scene.background = null;
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(0, 2.5, 7);
+camera.lookAt(0,0,0);
+
+// ── Torus geometry ───────────────────────────────────────────────────────────
+let segs = 40;
+
+function makeTorus(s) {
+  return new THREE.TorusGeometry(2, 1, s, s * 2);
+}
+
+// Color gradient material using vertex colors
+function buildMesh(s, mode) {
+  const geo = makeTorus(s);
+
+  // Assign vertex colors based on height (z)
+  const pos = geo.attributes.position;
+  const colors = [];
+  const c1 = new THREE.Color(0x2a6b9c); // blue-ish top
+  const c2 = new THREE.Color(0xc8613a); // orange-red bottom
+  const c3 = new THREE.Color(0x4aaa6a); // green middle
+
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i); // -1 to 1
+    const t = (z + 1) / 2;
+    const col = new THREE.Color().lerpColors(c2, c1, t);
+    colors.push(col.r, col.g, col.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  const mat = new THREE.MeshPhongMaterial({
+    vertexColors: true,
+    shininess: 80,
+    specular: new THREE.Color(0x888888),
+    transparent: true,
+    opacity: parseFloat(document.getElementById('opa').value),
+    side: THREE.DoubleSide,
+  });
+
+  return new THREE.Mesh(geo, mat);
+}
+
+function buildWire(s) {
+  const geo = makeTorus(s);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x1e1e2e,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.25,
+  });
+  return new THREE.Mesh(geo, mat);
+}
+
+let solid = buildMesh(segs, 'solid');
+let wire  = buildWire(segs);
+scene.add(solid);
+scene.add(wire);
+wire.visible = false;
+
+// ── Lights ───────────────────────────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambient);
+
+const dirLight = new THREE.DirectionalLight(0xffd4a0, 1.2);
+dirLight.position.set(5, 8, 5);
+scene.add(dirLight);
+
+const fillLight = new THREE.DirectionalLight(0x7eb8c8, 0.5);
+fillLight.position.set(-5, -3, -2);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0xc8a96e, 0.6, 20);
+rimLight.position.set(0, -4, 3);
+scene.add(rimLight);
+
+// ── Orbit controls (manual) ──────────────────────────────────────────────────
+let isDragging = false, prevX = 0, prevY = 0;
+let rotX = 0.3, rotY = 0;
+let autoSpeed = 0.004;
+
+canvas.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+window.addEventListener('mouseup',   () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  rotY += (e.clientX - prevX) * 0.008;
+  rotX += (e.clientY - prevY) * 0.008;
+  rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
+  prevX = e.clientX; prevY = e.clientY;
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY; });
+window.addEventListener('touchend',   () => isDragging = false);
+window.addEventListener('touchmove',  e => {
+  if (!isDragging) return;
+  rotY += (e.touches[0].clientX - prevX) * 0.008;
+  rotX += (e.touches[0].clientY - prevY) * 0.008;
+  prevX = e.touches[0].clientX; prevY = e.touches[0].clientY;
+});
+
+// Zoom
+let zoom = 7;
+canvas.addEventListener('wheel', e => {
+  zoom = Math.max(3, Math.min(14, zoom + e.deltaY * 0.01));
+  e.preventDefault();
+}, { passive: false });
+
+// ── Resize ───────────────────────────────────────────────────────────────────
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Animation loop ───────────────────────────────────────────────────────────
+let frame = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  frame++;
+
+  if (!isDragging) rotY += autoSpeed;
+
+  const group = new THREE.Euler(rotX, rotY, 0, 'YXZ');
+  solid.rotation.copy(group);
+  wire.rotation.copy(group);
+
+  camera.position.set(0, 0, zoom);
+  camera.lookAt(0,0,0);
+
+  // Pulsing rim light
+  rimLight.intensity = 0.4 + 0.2 * Math.sin(frame * 0.02);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Rebuild on segment change ────────────────────────────────────────────────
+function rebuild() {
+  scene.remove(solid);
+  scene.remove(wire);
+  solid.geometry.dispose();
+  wire.geometry.dispose();
+
+  solid = buildMesh(segs);
+  wire  = buildWire(segs);
+
+  // Restore visibility based on mode
+  const mode = currentMode;
+  applyMode(mode);
+
+  scene.add(solid);
+  scene.add(wire);
+}
+
+// ── Controls UI ─────────────────────────────────────────────────────────────
+document.getElementById('spd').addEventListener('input', function() {
+  autoSpeed = parseFloat(this.value) * 0.01;
+  document.getElementById('spd-val').textContent = this.value;
+});
+
+document.getElementById('seg').addEventListener('input', function() {
+  segs = parseInt(this.value);
+  document.getElementById('seg-val').textContent = this.value;
+  rebuild();
+});
+
+document.getElementById('opa').addEventListener('input', function() {
+  const v = parseFloat(this.value);
+  solid.material.opacity = v;
+  document.getElementById('opa-val').textContent = v.toFixed(1);
+});
+
+let currentMode = 'solid';
+function applyMode(m) {
+  currentMode = m;
+  if (m === 'solid') { solid.visible = true;  wire.visible = false; }
+  if (m === 'wire')  { solid.visible = false; wire.visible = true;  }
+  if (m === 'both')  { solid.visible = true;  wire.visible = true;  }
+}
+
+document.getElementById('btn-solid').addEventListener('click', function() {
+  setActive(this); applyMode('solid');
+});
+document.getElementById('btn-wire').addEventListener('click', function() {
+  setActive(this); applyMode('wire');
+});
+document.getElementById('btn-both').addEventListener('click', function() {
+  setActive(this); applyMode('both');
+});
+
+function setActive(btn) {
+  document.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

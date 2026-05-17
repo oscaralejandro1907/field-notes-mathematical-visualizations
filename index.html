@@ -3,46 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math & Physics Visualizations</title>
+    <title>Scientific & Mathematical Visualizations</title>
     <style>
-        /* These are the 'properties' you saw - they define your theme */
         :root {
-            --color-text-primary: #1f2937;
-            --color-border-tertiary: #e5e7eb;
+            --color-bg: #0a0a0f;
+            --color-card: #11111a;
+            --color-border: #1e1e2e;
+            --color-text-primary: #e8e4dc;
+            --color-text-secondary: #6b6880;
+            --color-accent: #c8a96e;
+            --color-accent-secondary: #7eb8c8;
             --border-radius-lg: 8px;
         }
-        @media (prefers-color-scheme: dark) {
+
+        @media (prefers-color-scheme: light) {
             :root {
-                --color-text-primary: #f9fafb;
-                --color-border-tertiary: #374151;
+                --color-bg: #f9fafb;
+                --color-card: #ffffff;
+                --color-border: #e5e7eb;
+                --color-text-primary: #1f2937;
+                --color-text-secondary: #4b5563;
+                --color-accent: #0f6e56;
+                --color-accent-secondary: #534ab7;
             }
-            body { background-color: #111827; color: #f9fafb; }
         }
+
         body {
-            font-family: -apple-system, sans-serif;
-            padding: 40px;
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
             max-width: 800px;
             margin: 0 auto;
         }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            color: var(--color-accent);
+            margin: 0 0 10px 0;
+        }
+
+        p.subtitle {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
         .proj-card {
-            border: 1px solid var(--color-border-tertiary);
-            padding: 20px;
+            background-color: var(--color-card);
+            border: 1px solid var(--color-border);
+            padding: 24px;
             border-radius: var(--border-radius-lg);
             text-decoration: none;
             color: inherit;
             display: block;
-            transition: transform 0.2s;
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
-        .proj-card:hover { transform: translateY(-3px); }
+
+        .proj-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--color-accent);
+        }
+
+        .proj-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--color-accent-secondary);
+        }
+
+        .proj-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
-    <h1>My Scientific Visualizations</h1>
-    <p>Select a topic to explore:</p>
+    <div class="container">
+        <header>
+            <h1>Scientific Visualizations</h1>
+            <p class="subtitle">An interactive collection of mathematical models and geometric explorations.</p>
+        </header>
 
-    <a href="visualizations/surface_integral_dS_over_dA.html" class="proj-card">
-        <h3>Surface Integral: dS over dA</h3>
-        <p>Interactive 3D diagram showing surface projection onto the xy-plane.</p>
-    </a>
+        <main class="grid">
+            <a href="visualizations/surface_integral_dS_over_dA.html" class="proj-card">
+                <h3>Surface Integral: dS over dA</h3>
+                <p>Interactive 3D projection model exploring vector calculus foundations. Visualizes how an infinitesimal patch element dS on a curved surface projects onto dA on the xy-plane region.</p>
+            </a>
+
+            <a href="visualizations/toro_3d.html" class="proj-card">
+                <h3>Parametric Surface: 3D Torus</h3>
+                <p>Advanced real-time rendering of a parameterized three-dimensional torus using WebGL. Controls integration resolution grid metrics, rotation trajectories, and topological transparency meshes.</p>
+            </a>
+
+            </main>
+    </div>
 </body>
 </html>
