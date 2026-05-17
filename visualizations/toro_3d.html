@@ -447,10 +447,10 @@ function buildMesh(s, mode) {
 function buildWire(s) {
   const geo = makeTorus(s);
   const mat = new THREE.MeshBasicMaterial({
-    color: 0x1e1e2e,
+    color: 0xaaaaaa,
     wireframe: true,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.45,
   });
   return new THREE.Mesh(geo, mat);
 }
