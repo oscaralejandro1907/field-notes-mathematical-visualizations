@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Secant → Tangent Limit</title>
+<style>
+  :root{
+    --bg:#0f1120; --panel:#171a2e; --ink:#eef0ff; --muted:#9aa0c4;
+    --curve:#1f2545; --line:#2a3160;
+    --secant:#2fa7ff; --tangent:#ff4f9a; --pcol:#ffd34d; --qcol:#7CFC9B;
+    --accent:#7c6cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:radial-gradient(1200px 700px at 70% -10%,#1c2042 0%,var(--bg) 55%);
+    color:var(--ink); min-height:100vh; padding:18px;
+  }
+  .wrap{max-width:1080px; margin:0 auto}
+  h1{font-size:1.5rem; margin:0 0 2px; letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted); margin:0 0 16px; font-size:.92rem}
+  .grid{display:grid; grid-template-columns:1.55fr 1fr; gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel); border:1px solid #262c4e; border-radius:16px; padding:14px 16px;
+        box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  canvas{width:100%; height:auto; display:block; border-radius:12px; background:var(--curve);
+         touch-action:none; cursor:grab}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:.85rem; color:var(--muted)}
+  .legend i{display:inline-block; width:22px; height:3px; border-radius:3px; vertical-align:middle; margin-right:6px}
+  .controls label{display:block; font-size:.85rem; color:var(--muted); margin:14px 0 6px}
+  input[type=range]{width:100%; accent-color:var(--accent)}
+  .btns{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap}
+  button{flex:1; min-width:120px; cursor:pointer; border:none; border-radius:10px; padding:11px 14px;
+         font-size:.92rem; font-weight:600; color:#fff; background:var(--accent); transition:.15s transform,.15s filter}
+  button.alt{background:#2b3160}
+  button:hover{filter:brightness(1.12)} button:active{transform:translateY(1px)}
+  .readout{margin-top:16px; background:#10132a; border:1px solid #242a4d; border-radius:12px; padding:14px}
+  .row{display:flex; justify-content:space-between; align-items:baseline; margin:7px 0; font-size:.95rem}
+  .row b{font-variant-numeric:tabular-nums; font-size:1.05rem}
+  .secantTxt{color:var(--secant)} .tanTxt{color:var(--tangent)} .qtxt{color:var(--qcol)} .ptxt{color:var(--pcol)}
+  .formula{font-family:'Cambria Math','Times New Roman',serif; font-size:1.02rem; text-align:center;
+           background:#0c0f22; border-radius:10px; padding:12px 8px; margin-top:12px; line-height:1.7}
+  .frac{display:inline-block; text-align:center; vertical-align:middle; margin:0 4px}
+  .frac .n{display:block; border-bottom:1.5px solid var(--muted); padding:0 6px}
+  .frac .d{display:block; padding:0 6px}
+  .gap{font-size:.82rem; color:var(--muted); text-align:center; margin-top:8px}
+  .gap b{color:var(--ink)}
+  .tip{font-size:.82rem; color:var(--muted); margin-top:12px; line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>From <span>Secant</span> to <span>Tangent</span></h1>
+  <p class="sub">Slide point <b style="color:var(--qcol)">Q</b> toward the fixed point <b style="color:var(--pcol)">P</b>. Watch the blue secant line swing into the pink tangent line — that limit <i>is</i> the derivative.</p>
+
+  <div class="grid">
+    <div class="card">
+      <canvas id="cv" width="640" height="520"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--tangent)"></i>tangent at P (the slope we want)</span>
+        <span><i style="background:var(--secant)"></i>secant line P→Q</span>
+        <span><i style="background:var(--pcol)"></i>P (fixed)</span>
+        <span><i style="background:var(--qcol)"></i>Q (moving)</span>
+      </div>
+    </div>
+
+    <div class="card controls">
+      <label>Move Q toward P &nbsp;—&nbsp; gap <b>h = <span id="hLbl">3.00</span></b></label>
+      <input id="h" type="range" min="0.02" max="5" step="0.01" value="3">
+
+      <label>Position of P on the curve &nbsp;(x = <span id="pLbl">1.0</span>)</label>
+      <input id="px" type="range" min="-1.5" max="4.5" step="0.1" value="1">
+
+      <div class="btns">
+        <button id="play">▶ Animate Q → P</button>
+        <button class="alt" id="reset">Reset</button>
+      </div>
+
+      <div class="readout">
+        <div class="row"><span class="secantTxt">Secant slope</span><b class="secantTxt" id="mSec">—</b></div>
+        <div class="row"><span class="tanTxt">Tangent slope (f′)</span><b class="tanTxt" id="mTan">—</b></div>
+        <div class="gap">difference: <b id="diff">—</b></div>
+
+        <div class="formula">
+          m<sub>sec</sub> =
+          <span class="frac"><span class="n">f(x+h) − f(x)</span><span class="d">h</span></span>
+          =
+          <span class="frac"><span class="n" id="fnum">—</span><span class="d" id="fden">h</span></span>
+          = <span id="fval">—</span>
+        </div>
+        <div class="gap">as <b>h → 0</b>, m<sub>sec</sub> → <b class="tanTxt">f′(x)</b></div>
+      </div>
+
+      <p class="tip">Tip: drag <b>Q</b> right on the graph, or use the slider. The closer Q gets to P, the more the blue line lies on top of the pink one.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+
+// The function and its exact derivative
+function f(x){ return 2 + 1.2*x - 0.04*x*x*x; }
+function df(x){ return 1.2 - 0.12*x*x; }
+
+// world view window
+const xmin=-3, xmax=9, ymin=-2.5, ymax=7.5;
+const X = x => ( (x - xmin)/(xmax - xmin) ) * W;
+const Y = y => H - ( (y - ymin)/(ymax - ymin) ) * H;
+const invX = px => xmin + (px/W)*(xmax-xmin);
+
+let pX = 1.0;   // x of P
+let h   = 3.0;  // gap; Q at pX + h
+
+const hEl=document.getElementById('h'), pxEl=document.getElementById('px');
+const hLbl=document.getElementById('hLbl'), pLbl=document.getElementById('pLbl');
+
+function drawGrid(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='#222850'; ctx.lineWidth=1;
+  for(let gx=Math.ceil(xmin); gx<=xmax; gx++){ ctx.beginPath(); ctx.moveTo(X(gx),0); ctx.lineTo(X(gx),H); ctx.stroke(); }
+  for(let gy=Math.ceil(ymin); gy<=ymax; gy++){ ctx.beginPath(); ctx.moveTo(0,Y(gy)); ctx.lineTo(W,Y(gy)); ctx.stroke(); }
+  // axes
+  ctx.strokeStyle='#5b639a'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,Y(0)); ctx.lineTo(W,Y(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0),0); ctx.lineTo(X(0),H); ctx.stroke();
+  ctx.fillStyle='#7e85b8'; ctx.font='13px Segoe UI';
+  ctx.fillText('x', W-16, Y(0)-8); ctx.fillText('y', X(0)+8, 16);
+}
+
+function drawCurve(){
+  ctx.strokeStyle='#cfd6ff'; ctx.lineWidth=3; ctx.beginPath();
+  let first=true;
+  for(let px=0; px<=W; px+=2){ const x=invX(px), y=f(x);
+    if(first){ctx.moveTo(X(x),Y(y)); first=false;} else ctx.lineTo(X(x),Y(y)); }
+  ctx.stroke();
+}
+
+// draw an infinite line through two points clipped to canvas
+function fullLine(x1,y1,x2,y2,color,width,dash){
+  const dx=x2-x1, dy=y2-y1;
+  let ex1,ey1,ex2,ey2;
+  if(Math.abs(dx)>1e-9){ const m=dy/dx;
+    ex1=xmin; ey1=y1+m*(xmin-x1); ex2=xmax; ey2=y1+m*(xmax-x1);
+  } else { ex1=x1; ey1=ymin; ex2=x1; ey2=ymax; }
+  ctx.save(); ctx.setLineDash(dash||[]); ctx.strokeStyle=color; ctx.lineWidth=width;
+  ctx.beginPath(); ctx.moveTo(X(ex1),Y(ey1)); ctx.lineTo(X(ex2),Y(ey2)); ctx.stroke(); ctx.restore();
+}
+
+function dot(x,y,color,r,label){
+  ctx.beginPath(); ctx.fillStyle=color; ctx.arc(X(x),Y(y),r,0,7); ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle='#0c0f22'; ctx.stroke();
+  if(label){ ctx.fillStyle=color; ctx.font='bold 16px Segoe UI';
+    ctx.fillText(label, X(x)+9, Y(y)-9); }
+}
+
+function render(){
+  const qX = pX + h;
+  const pY=f(pX), qY=f(qX);
+  drawGrid(); drawCurve();
+  // tangent (pink) at P
+  fullLine(pX,pY, pX+1, pY+df(pX), getCSS('--tangent'), 2.5);
+  // secant (blue) through P and Q
+  fullLine(pX,pY, qX,qY, getCSS('--secant'), 2.5);
+  // points
+  dot(qX,qY, getCSS('--qcol'), 6, 'Q');
+  dot(pX,pY, getCSS('--pcol'), 7, 'P');
+
+  // readouts
+  const mSec=(f(qX)-f(pX))/h, mTan=df(pX);
+  set('mSec', mSec.toFixed(3)); set('mTan', mTan.toFixed(3));
+  set('diff', (Math.abs(mSec-mTan)).toFixed(3));
+  set('fnum', (f(qX)-f(pX)).toFixed(3));
+  set('fden', h.toFixed(2));
+  set('fval', mSec.toFixed(3));
+}
+function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function set(id,t){ document.getElementById(id).textContent=t; }
+
+// controls
+hEl.addEventListener('input',()=>{ h=parseFloat(hEl.value); hLbl.textContent=h.toFixed(2); render(); });
+pxEl.addEventListener('input',()=>{ pX=parseFloat(pxEl.value); pLbl.textContent=pX.toFixed(1); render(); });
+
+// drag Q on canvas
+let dragging=false;
+function pointerX(e){ const r=cv.getBoundingClientRect(); const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  return invX(cx * (W/r.width)); }
+cv.addEventListener('pointerdown',e=>{ dragging=true; cv.style.cursor='grabbing'; moveQ(e); });
+window.addEventListener('pointermove',e=>{ if(dragging) moveQ(e); });
+window.addEventListener('pointerup',()=>{ dragging=false; cv.style.cursor='grab'; });
+function moveQ(e){ let x=pointerX(e); let nh=x-pX;
+  if(nh<0.02) nh=0.02; if(nh>5) nh=5; h=nh; hEl.value=h; hLbl.textContent=h.toFixed(2); render(); }
+
+// animate Q -> P
+let anim=null;
+document.getElementById('play').addEventListener('click',()=>{
+  if(anim){ cancelAnimationFrame(anim); anim=null; return; }
+  if(h<0.05) h=5; // restart from far if already close
+  const step=()=>{ h*=0.965; if(h<0.02) h=0.02;
+    hEl.value=h; hLbl.textContent=h.toFixed(2); render();
+    if(h>0.025){ anim=requestAnimationFrame(step);} else { anim=null; } };
+  step();
+});
+document.getElementById('reset').addEventListener('click',()=>{
+  if(anim){cancelAnimationFrame(anim); anim=null;}
+  h=3; pX=1; hEl.value=3; pxEl.value=1; hLbl.textContent='3.00'; pLbl.textContent='1.0'; render();
+});
+
+render();
+</script>
+</body>
+</html>

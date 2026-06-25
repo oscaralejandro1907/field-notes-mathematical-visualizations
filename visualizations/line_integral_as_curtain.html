@@ -1,0 +1,272 @@
+
+<h2 class="sr-only">Interactive 3D visualization of a line integral as the area of a curtain hanging from a curve on a surface down to the xy-plane.</h2>
+<div style="width:100%;max-width:680px;margin:0 auto;">
+  <canvas id="c" style="width:100%;height:420px;display:block;cursor:grab;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);"></canvas>
+  <div style="display:flex;align-items:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="font-size:13px;color:var(--color-text-secondary);">Rotate</label>
+      <input type="range" id="rot" min="0" max="360" value="30" step="1" style="width:120px;">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="font-size:13px;color:var(--color-text-secondary);">Tilt</label>
+      <input type="range" id="tilt" min="10" max="80" value="35" step="1" style="width:120px;">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="font-size:13px;color:var(--color-text-secondary);">Show curtain</label>
+      <input type="checkbox" id="curtain" checked style="width:16px;height:16px;cursor:pointer;">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="font-size:13px;color:var(--color-text-secondary);">Show surface</label>
+      <input type="checkbox" id="surf" checked style="width:16px;height:16px;cursor:pointer;">
+    </div>
+  </div>
+  <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+      <span style="display:inline-block;width:24px;height:3px;background:#534AB7;border-radius:2px;"></span> curve C on surface
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+      <span style="display:inline-block;width:24px;height:3px;background:#D85A30;border-radius:2px;"></span> projection of C on xy-plane
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);">
+      <span style="display:inline-block;width:24px;height:10px;background:rgba(83,74,183,0.25);border-radius:2px;border:1px solid rgba(83,74,183,0.5);"></span> curtain = ∫<sub>C</sub> f ds
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const rotSlider = document.getElementById('rot');
+  const tiltSlider = document.getElementById('tilt');
+  const curtainCB = document.getElementById('curtain');
+  const surfCB = document.getElementById('surf');
+
+  let W, H, scale;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    W = canvas.width = rect.width * devicePixelRatio;
+    H = canvas.height = rect.height * devicePixelRatio;
+    scale = Math.min(W, H) * 0.28;
+    draw();
+  }
+
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const surfFill   = dark ? 'rgba(55,138,221,0.10)' : 'rgba(55,138,221,0.10)';
+  const surfStroke = dark ? 'rgba(55,138,221,0.25)' : 'rgba(55,138,221,0.25)';
+  const curtainFill   = dark ? 'rgba(83,74,183,0.22)' : 'rgba(83,74,183,0.20)';
+  const curtainStroke = dark ? 'rgba(83,74,183,0.55)' : 'rgba(83,74,183,0.55)';
+  const axisCol  = dark ? 'rgba(200,200,200,0.5)' : 'rgba(80,80,80,0.5)';
+  const labelCol = dark ? 'rgba(200,200,200,0.8)' : 'rgba(60,60,60,0.85)';
+  const gridCol  = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+
+  function f(x, y) {
+    return 0.5 * Math.sin(x * 1.2) * Math.cos(y * 1.0) + 0.6 + 0.15 * Math.cos(x * 2 + y);
+  }
+
+  function project(x3, y3, z3, rotRad, tiltRad) {
+    const cosR = Math.cos(rotRad), sinR = Math.sin(rotRad);
+    const cosT = Math.cos(tiltRad), sinT = Math.sin(tiltRad);
+    const rx = x3 * cosR - y3 * sinR;
+    const ry = x3 * sinR + y3 * cosR;
+    const rz = z3;
+    const sx = rx;
+    const sy = ry * sinT + rz * cosT;
+    const sz = -ry * cosT + rz * sinT;
+    return { sx: sx * scale + W / 2, sy: -sy * scale + H * 0.52, depth: -sz };
+  }
+
+  const N = 22;
+  const RANGE = 2.2;
+
+  function buildGrid() {
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const row = [];
+      for (let j = 0; j <= N; j++) {
+        const x = -RANGE + (2 * RANGE * i) / N;
+        const y = -RANGE + (2 * RANGE * j) / N;
+        row.push({ x, y, z: f(x, y) });
+      }
+      pts.push(row);
+    }
+    return pts;
+  }
+  const grid = buildGrid();
+
+  function pathCurve(t) {
+    const angle = t * Math.PI * 1.6 - 0.4;
+    const r = 0.8 + 0.5 * t;
+    const x = r * Math.cos(angle);
+    const y = r * Math.sin(angle);
+    return { x, y };
+  }
+
+  const PATH_N = 60;
+  const pathPts = [];
+  for (let i = 0; i <= PATH_N; i++) {
+    const t = i / PATH_N;
+    const { x, y } = pathCurve(t);
+    pathPts.push({ x, y, z: f(x, y) });
+  }
+
+  function draw() {
+    const rotRad  = (parseFloat(rotSlider.value) * Math.PI) / 180;
+    const tiltRad = (parseFloat(tiltSlider.value) * Math.PI) / 180;
+    const showCurtain = curtainCB.checked;
+    const showSurf    = surfCB.checked;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = `${Math.round(13 * devicePixelRatio)}px sans-serif`;
+
+    const pr = (x, y, z) => project(x, y, z, rotRad, tiltRad);
+
+    if (showSurf) {
+      const faces = [];
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const p00 = grid[i][j], p10 = grid[i+1][j];
+          const p01 = grid[i][j+1], p11 = grid[i+1][j+1];
+          const cx = (p00.x+p10.x+p01.x+p11.x)/4;
+          const cy = (p00.y+p10.y+p01.y+p11.y)/4;
+          const cz = (p00.z+p10.z+p01.z+p11.z)/4;
+          const { depth } = pr(cx, cy, cz);
+          faces.push({ i, j, depth });
+        }
+      }
+      faces.sort((a, b) => a.depth - b.depth);
+
+      for (const { i, j } of faces) {
+        const corners = [
+          pr(grid[i][j].x, grid[i][j].y, grid[i][j].z),
+          pr(grid[i+1][j].x, grid[i+1][j].y, grid[i+1][j].z),
+          pr(grid[i+1][j+1].x, grid[i+1][j+1].y, grid[i+1][j+1].z),
+          pr(grid[i][j+1].x, grid[i][j+1].y, grid[i][j+1].z),
+        ];
+        ctx.beginPath();
+        ctx.moveTo(corners[0].sx, corners[0].sy);
+        for (let k = 1; k < 4; k++) ctx.lineTo(corners[k].sx, corners[k].sy);
+        ctx.closePath();
+        ctx.fillStyle = surfFill;
+        ctx.fill();
+        ctx.strokeStyle = surfStroke;
+        ctx.lineWidth = 0.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+    }
+
+    if (showCurtain) {
+      const curtainPolys = [];
+      for (let i = 0; i < PATH_N; i++) {
+        const p0 = pathPts[i], p1 = pathPts[i+1];
+        const top0  = pr(p0.x, p0.y, p0.z);
+        const top1  = pr(p1.x, p1.y, p1.z);
+        const bot0  = pr(p0.x, p0.y, 0);
+        const bot1  = pr(p1.x, p1.y, 0);
+        const depth = (top0.depth + top1.depth + bot0.depth + bot1.depth) / 4;
+        curtainPolys.push({ top0, top1, bot0, bot1, depth });
+      }
+      curtainPolys.sort((a, b) => a.depth - b.depth);
+      for (const { top0, top1, bot0, bot1 } of curtainPolys) {
+        ctx.beginPath();
+        ctx.moveTo(bot0.sx, bot0.sy);
+        ctx.lineTo(top0.sx, top0.sy);
+        ctx.lineTo(top1.sx, top1.sy);
+        ctx.lineTo(bot1.sx, bot1.sy);
+        ctx.closePath();
+        ctx.fillStyle = curtainFill;
+        ctx.fill();
+        ctx.strokeStyle = curtainStroke;
+        ctx.lineWidth = 0.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+    }
+
+    const projPath    = pathPts.map(p => pr(p.x, p.y, p.z));
+    const projPathBot = pathPts.map(p => pr(p.x, p.y, 0));
+
+    ctx.beginPath();
+    ctx.moveTo(projPathBot[0].sx, projPathBot[0].sy);
+    for (let i = 1; i <= PATH_N; i++) ctx.lineTo(projPathBot[i].sx, projPathBot[i].sy);
+    ctx.strokeStyle = '#D85A30';
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(projPath[0].sx, projPath[0].sy);
+    for (let i = 1; i <= PATH_N; i++) ctx.lineTo(projPath[i].sx, projPath[i].sy);
+    ctx.strokeStyle = '#534AB7';
+    ctx.lineWidth = 2.5 * devicePixelRatio;
+    ctx.stroke();
+
+    const axLen = RANGE * 1.15;
+    const axes = [
+      { from: [0,0,0], to: [axLen,0,0], label: 'x', offX: 8, offY: 4 },
+      { from: [0,0,0], to: [0,axLen,0], label: 'y', offX: 8, offY: 4 },
+      { from: [0,0,0], to: [0,0,axLen*0.7], label: 'z = f(x,y)', offX: 8, offY: -4 },
+    ];
+    for (const ax of axes) {
+      const a = pr(...ax.from), b = pr(...ax.to);
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.strokeStyle = axisCol;
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.stroke();
+      ctx.fillStyle = labelCol;
+      ctx.fillText(ax.label, b.sx + ax.offX * devicePixelRatio, b.sy + ax.offY * devicePixelRatio);
+    }
+
+    const pPt = pr(pathPts[0].x, pathPts[0].y, 0);
+    const qPt = pr(pathPts[PATH_N].x, pathPts[PATH_N].y, 0);
+    ctx.fillStyle = '#D85A30';
+    ctx.beginPath(); ctx.arc(pPt.sx, pPt.sy, 4*devicePixelRatio, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(qPt.sx, qPt.sy, 4*devicePixelRatio, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = labelCol;
+    ctx.fillText('P', pPt.sx - 14*devicePixelRatio, pPt.sy + 4*devicePixelRatio);
+    ctx.fillText('Q', qPt.sx + 6*devicePixelRatio, qPt.sy + 4*devicePixelRatio);
+
+    const mid = Math.floor(PATH_N/2);
+    const mTop = pr(pathPts[mid].x, pathPts[mid].y, pathPts[mid].z);
+    const mBot = pr(pathPts[mid].x, pathPts[mid].y, 0);
+    ctx.beginPath();
+    ctx.moveTo(mBot.sx, mBot.sy);
+    ctx.lineTo(mTop.sx, mTop.sy);
+    ctx.strokeStyle = 'rgba(83,74,183,0.7)';
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.setLineDash([4*devicePixelRatio, 3*devicePixelRatio]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const labX = (mBot.sx + mTop.sx)/2 + 8*devicePixelRatio;
+    const labY = (mBot.sy + mTop.sy)/2;
+    ctx.fillStyle = '#534AB7';
+    ctx.fillText('f(x,y)', labX, labY);
+  }
+
+  let dragging = false, lastX = 0;
+  canvas.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; canvas.style.cursor = 'grabbing'; });
+  canvas.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX; lastX = e.clientX;
+    rotSlider.value = ((+rotSlider.value + dx * 0.5) % 360 + 360) % 360;
+    draw();
+  });
+  canvas.addEventListener('mouseup', () => { dragging = false; canvas.style.cursor = 'grab'; });
+  canvas.addEventListener('mouseleave', () => { dragging = false; canvas.style.cursor = 'grab'; });
+
+  canvas.addEventListener('touchstart', e => { lastX = e.touches[0].clientX; });
+  canvas.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - lastX; lastX = e.touches[0].clientX;
+    rotSlider.value = ((+rotSlider.value + dx * 0.5) % 360 + 360) % 360;
+    draw(); e.preventDefault();
+  }, { passive: false });
+
+  rotSlider.addEventListener('input', draw);
+  tiltSlider.addEventListener('input', draw);
+  curtainCB.addEventListener('change', draw);
+  surfCB.addEventListener('change', draw);
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
