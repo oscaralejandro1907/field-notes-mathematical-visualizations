@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Be the Neuron — Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lab bench. Sticky level bar on top, then one level at a time: controls on the left, a 0–10 decision map on the right. Classes use TensorFlow Playground's own orange/blue so students recognise them later. */
+:root {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --ink: #16202e;
+  --muted: #5a6577;
+  --line: #d8dee8;
+  --blue: #1f6fb5;
+  --blue-soft: #cfe2f4;
+  --orange: #e7861b;
+  --orange-soft: #fbe2c4;
+  --accent: #2a3a8f;
+  --good: #1d8a4e;
+  --bad: #c0392b;
+  --chip: #e8ecf4;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151e; --panel: #171e2a; --ink: #e8edf5; --muted: #9aa6ba; --line: #2b3546;
+    --blue: #5aa6ea; --blue-soft: #1d3550; --orange: #f2a04a; --orange-soft: #4a3216;
+    --accent: #9fb1ff; --good: #4cc488; --bad: #ff7b6b; --chip: #222b3a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151e; --panel: #171e2a; --ink: #e8edf5; --muted: #9aa6ba; --line: #2b3546;
+  --blue: #5aa6ea; --blue-soft: #1d3550; --orange: #f2a04a; --orange-soft: #4a3216;
+  --accent: #9fb1ff; --good: #4cc488; --bad: #ff7b6b; --chip: #222b3a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.topin { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding-block: 12px; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+.brand svg { flex: none; }
+.backlink { text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.backlink:hover { color: var(--accent); border-color: var(--accent); }
+footer a { color: var(--accent); }
+nav.levels { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+nav.levels a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+nav.levels a[aria-current="page"] { color: var(--panel); background: var(--accent); border-color: var(--accent); }
+nav.levels a .done { color: var(--good); margin-left: 4px; }
+nav.levels a[aria-current="page"] .done { color: var(--panel); }
+.score { font-family: var(--font-mono); font-size: 13px; color: var(--muted); display: flex; gap: 12px; align-items: center; }
+.score b { color: var(--ink); font-size: 16px; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+main { padding-block: 22px 48px; }
+.lv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+.lv[hidden] { display: none !important; }
+.lv > .full { grid-column: 1 / -1; }
+@media (max-width: 860px) { .lv { grid-template-columns: minmax(0, 1fr); } }
+.intro { display: grid; gap: 8px; align-content: start; min-width: 0; padding-block: 4px; }
+.guide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 8px; align-content: start; min-width: 0; font-size: 14px; }
+.tag { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); }
+.guide .tag:not(:first-child) { margin-top: 6px; }
+.rowhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+h2.sub { font-size: 15px; margin-bottom: 6px; }
+.panel > .push { margin-top: auto; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.1; margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; }
+p { margin: 0; }
+.intro p { color: var(--muted); }
+.goal { display: inline-flex; gap: 8px; align-items: baseline; background: var(--chip); border-radius: 8px; padding: 8px 12px; font-size: 14px; margin-top: 6px; width: fit-content; max-width: 100%; }
+.goal strong { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); }
+.think { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 14px; }
+.think b { color: var(--ink); }
+.thinkhead { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); margin-top: 8px; }
+.rulebox { background: var(--chip); border-radius: 8px; padding: 10px 14px; display: grid; gap: 6px; margin-top: 6px; max-width: 100%; min-width: 0; }
+.rulehead { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); }
+.ruleeq { font-family: var(--font-mono); font-weight: 600; color: var(--ink); font-size: clamp(13px, 3.4vw, 17px); white-space: nowrap; overflow-x: auto; }
+.ruledefs { margin: 0; display: grid; gap: 4px; font-size: 14px; }
+.ruledefs div { display: flex; gap: 10px; align-items: baseline; }
+.ruledefs dt { font-family: var(--font-mono); font-weight: 600; color: var(--accent); min-width: 3.5em; flex: none; }
+.ruledefs dd { margin: 0; min-width: 0; }
+.cases3 { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.cases3 b { font-family: var(--font-mono); display: inline-block; min-width: 2.4em; color: var(--accent); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.slider { display: grid; gap: 4px; }
+.slider .lab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.slider .lab span { font-weight: 600; }
+.slider .lab output { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 5ch; text-align: right; }
+.slider small { color: var(--muted); font-size: 12.5px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+
+.formula { font-family: var(--font-mono); font-size: 14px; background: var(--chip); border-radius: 8px; padding: 12px; overflow-x: auto; line-height: 1.7; font-variant-numeric: tabular-nums; }
+.formula .w { color: var(--accent); font-weight: 600; }
+.formula .res-a { color: var(--blue); font-weight: 600; }
+.formula .res-r { color: var(--orange); font-weight: 600; }
+
+.meter { display: flex; align-items: center; gap: 12px; }
+.meter .big { font-family: var(--font-display); font-weight: 800; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1; }
+.meter .bar { flex: 1; height: 10px; background: var(--chip); border-radius: 999px; overflow: hidden; }
+.meter .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .25s; }
+
+.plotbox { display: grid; gap: 8px; }
+.plotbox svg { width: 100%; max-width: 470px; margin-inline: auto; height: auto; display: block; touch-action: manipulation; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); }
+
+.cases { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { font-family: var(--font-mono); text-align: right; }
+tr.sel td { background: var(--chip); }
+tbody tr { cursor: pointer; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill.a { background: var(--blue-soft); color: var(--blue); }
+.pill.r { background: var(--orange-soft); color: var(--orange); }
+.ok { color: var(--good); font-weight: 700; }
+.no { color: var(--bad); font-weight: 700; }
+
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 600; font-size: 14px; border-radius: 8px; padding: 8px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--panel); border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button:hover:not(:disabled) { filter: brightness(1.06); }
+
+.hint { font-size: 13.5px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+.toast { display: none; gap: 10px; align-items: center; background: var(--chip); border: 1px solid var(--good); border-radius: 10px; padding: 10px 12px; font-weight: 600; }
+.toast.show { display: flex; }
+.toast .badge { font-family: var(--font-mono); font-size: 12px; color: var(--good); letter-spacing: .06em; text-transform: uppercase; }
+
+/* learning loop */
+.loop { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.loop div { text-align: center; padding: 8px 4px; border-radius: 8px; background: var(--chip); font-size: 13px; font-weight: 600; color: var(--muted); border: 2px solid transparent; }
+.loop div.on { border-color: var(--accent); color: var(--ink); background: var(--panel); }
+.log { font-family: var(--font-mono); font-size: 13px; background: var(--chip); border-radius: 8px; padding: 12px; min-height: 9.5em; line-height: 1.6; overflow-x: auto; font-variant-numeric: tabular-nums; }
+.log .lhead { font-weight: 600; color: var(--ink); padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.log .lrow { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); gap: 10px; padding-block: 3px; }
+.log .lk { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.log .lval b { color: var(--ink); }
+.log .lrow.bad .lk { color: var(--bad); }
+.log .lrow.good .lval { color: var(--good); font-weight: 600; }
+.log .erule { color: var(--muted); margin-bottom: 4px; }
+.log .eqs { display: grid; grid-template-columns: max-content max-content max-content; column-gap: 1ch; row-gap: 2px; align-items: baseline; }
+.log .en { font-weight: 600; color: var(--accent); }
+.log .er { font-weight: 700; color: var(--bad); white-space: nowrap; }
+.log .enote { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.log .eqs span { white-space: nowrap; }
+.mist { display: flex; align-items: flex-end; gap: 6px; height: 90px; border-bottom: 1px solid var(--line); padding-top: 6px; }
+.mist .col { flex: 1; max-width: 40px; display: grid; gap: 3px; justify-items: center; align-content: end; height: 100%; }
+.mist .col i { width: 100%; background: var(--bad); border-radius: 4px 4px 0 0; display: block; }
+.mist .col i.zero { background: var(--good); height: 4px !important; }
+.mist .col small { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.mistlab { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+/* pixels */
+.grid12 { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; width: 100%; max-width: 440px; margin-inline: auto; aspect-ratio: 1; user-select: none; touch-action: none; }
+.grid12 div { background: var(--chip); border-radius: 2px; }
+.grid12 div.on { background: var(--ink); }
+.grid12 div.win { outline: 2px solid var(--orange); outline-offset: -2px; }
+.numgrid { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; background: var(--chip); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; text-align: center; flex: 1; }
+.numgrid b { color: var(--ink); }
+.numgrid span { color: var(--muted); }
+.maps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.map { display: grid; gap: 6px; }
+.fmap { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; aspect-ratio: 1; width: 100%; max-width: 100%; }
+.fmap div { background: var(--chip); cursor: pointer; }
+.kern { display: grid; grid-template-columns: repeat(3, 30px); gap: 2px; font-family: var(--font-mono); font-size: 12px; }
+.kern span { text-align: center; padding: 3px 0; border-radius: 3px; background: var(--chip); }
+.kern span.p { background: var(--blue-soft); color: var(--blue); font-weight: 600; }
+.kern span.n { background: var(--orange-soft); color: var(--orange); font-weight: 600; }
+.maphead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; flex: 1; }
+.fact { align-content: center; }
+.fact { background: var(--chip); border-radius: 10px; padding: 12px; display: grid; gap: 2px; }
+.fact b { font-family: var(--font-display); font-size: 22px; font-variant-numeric: tabular-nums; }
+.fact span { font-size: 13px; color: var(--muted); }
+.cta { display: inline-block; text-decoration: none; background: var(--accent); color: var(--panel); font-weight: 600; padding: 9px 14px; border-radius: 8px; }
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap topin">
+    <a class="backlink" href="../index.html">← Collection</a>
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="6" cy="7" r="3.2" fill="var(--blue)"/><circle cx="6" cy="23" r="3.2" fill="var(--orange)"/><path d="M9 8 L19 14 M9 22 L19 16" stroke="var(--muted)" stroke-width="1.6"/><circle cx="21" cy="15" r="6.5" fill="var(--accent)"/></svg>
+      Be the Neuron
+    </div>
+    <nav class="levels" aria-label="Levels">
+      <a href="#level-1" data-l="1">1 · Loan desk<span class="done"></span></a>
+      <a href="#level-2" data-l="2">2 · Watch it learn<span class="done"></span></a>
+      <a href="#level-3" data-l="3">3 · The circle problem<span class="done"></span></a>
+      <a href="#level-4" data-l="4">4 · Pixel vision<span class="done"></span></a>
+    </nav>
+    <div class="score" aria-live="polite"><span>Points <b id="pts">0</b></span><span>Badges <b id="bdg">0/4</b></span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- LEVEL 1 -->
+<section id="v1" data-view="1" class="lv">
+  <div class="intro">
+    <span class="eyebrow">Level 1 · You are the neuron</span>
+    <h1>Approve or reject? Set the weights.</h1>
+    <p>A bank has 12 past applicants and knows who repaid. Each applicant has two inputs: a payment-history score and a debt level, both from 0 to 10. Your neuron multiplies each input by a weight, adds them up with the bias, and approves the loan when the total <b>z</b> is 0 or more.</p>
+  </div>
+  <div class="guide">
+    <span class="tag">GOAL</span>
+    <p>Classify all 12 applicants correctly. The neuron starts at 6 of 12.</p>
+    <span class="tag">THINK FIRST</span>
+    <ol class="think">
+      <li><b>Payment history:</b> should a better record push toward Approve or Reject? That decides the sign of w₁.</li>
+      <li><b>Debt level:</b> should more debt push toward Approve or Reject? That decides the sign of w₂.</li>
+      <li><b>Bias:</b> start at b = 0. Too many approvals? Move b down (stricter). Too many rejections? Move b up.</li>
+    </ol>
+  </div>
+  <div class="panel">
+    <h2>Your neuron</h2>
+    <div class="slider"><div class="lab"><span>w₁ · weight of payment history</span><output id="w1o"></output></div><input id="w1" type="range" min="-2" max="2" step="0.1"><small>Positive means "a higher score pushes toward approve".</small></div>
+    <div class="slider"><div class="lab"><span>w₂ · weight of debt level</span><output id="w2o"></output></div><input id="w2" type="range" min="-2" max="2" step="0.1"><small>Negative means "more debt pushes toward reject".</small></div>
+    <div class="slider"><div class="lab"><span>b · bias (how strict the bank is)</span><output id="bo"></output></div><input id="b" type="range" min="-10" max="10" step="0.5"><small>More negative means the neuron needs stronger evidence before it approves.</small></div>
+    <div class="formula" id="f1" aria-live="polite"></div>
+    <div class="push meter"><div class="big" id="acc1">6/12</div><div class="bar"><i id="bar1"></i></div><button id="reset1">Reset weights</button></div>
+    <div class="toast" id="t1"><span class="badge">Badge · Loan officer</span><span>All 12 correct. +100 points. Look at your weights: what did the neuron learn about debt?</span></div>
+  </div>
+  <div class="panel">
+    <h2>The 12 applicants on a map</h2>
+    <div class="plotbox">
+      <svg id="plot1" viewBox="0 0 420 400" role="img" aria-label="Map of the 12 applicants and the neuron's decision line"></svg>
+      <div class="legend"><span><i class="dot" style="background:var(--blue)"></i>Repaid</span><span><i class="dot" style="background:var(--orange)"></i>Defaulted</span><span>Shaded area = what your neuron decides · line = where z = 0</span></div>
+    </div>
+  </div>
+  <div class="panel full">
+    <div class="rowhead"><h2>Every applicant, calculated</h2><p class="hint">Tap a row to see its calculation in the formula box.</p></div>
+    <div class="cases"><table id="tab1"><thead><tr><th>Applicant</th><th style="text-align:right">History</th><th style="text-align:right">Debt</th><th style="text-align:right">z</th><th>Neuron says</th><th>Real outcome</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- LEVEL 2 -->
+<section id="v2" data-view="2" class="lv" hidden>
+  <div class="intro">
+    <span class="eyebrow">Level 2 · Rosenblatt's learning rule (1958)</span>
+    <h1>Let the neuron fix its own weights.</h1>
+    <p>Nobody sets the weights now. The neuron starts with bad weights and loops through the applicants: it makes a prediction, compares it with the real outcome, and nudges each weight only when it is wrong. One full pass over the 12 applicants is one <b>epoch</b>.</p>
+  </div>
+  <div class="guide">
+    <span class="tag">RULE</span>
+    <div class="ruleeq">new weight = old weight + 0.05 × error × input</div>
+    <dl class="ruledefs">
+      <div><dt>error</dt><dd>= real − predicted (1 = repaid or approve, 0 = defaulted or reject)<ul class="cases3"><li><b>+1</b> if it rejected someone who repaid</li><li><b>−1</b> if it approved someone who defaulted</li><li><b>0</b> if it was right: nothing changes</li></ul></dd></div>
+      <div><dt>input</dt><dd>= that applicant's value: payment history for w₁, debt level for w₂, always 1 for the bias.</dd></div>
+      <div><dt>0.05</dt><dd>= the learning rate, the size of each correction.</dd></div>
+    </dl>
+  </div>
+  <div class="panel">
+    <h2>Training, one step at a time</h2>
+    <div class="loop" id="loop"><div data-s="0">1 · Predict</div><div data-s="1">2 · Measure error</div><div data-s="2">3 · Adjust</div><div data-s="3">4 · Repeat</div></div>
+    <div class="log" id="log" aria-live="polite">Press "Next step" to start. The neuron begins with w₁ = 0.5, w₂ = 0.5, b = −5, which treats debt as a good thing.</div>
+    <div class="btns">
+      <button class="primary" id="step">Next step</button>
+      <button id="play">Play</button>
+      <button id="finish">Skip to the end</button>
+      <button id="reset2">Start over</button>
+    </div>
+    <div class="formula" id="f2"></div>
+    <div class="push">
+      <h2 class="sub">Mistakes per epoch</h2>
+      <div class="mist" id="mist"></div>
+      <div class="mistlab"><span>epoch 1 →</span><span id="eplab">epoch 0</span></div>
+    </div>
+    <div class="toast" id="t2"><span class="badge">Badge · Trainer</span><span id="t2txt"></span></div>
+  </div>
+  <div class="panel">
+    <h2>The decision line moves</h2>
+    <div class="plotbox">
+      <svg id="plot2" viewBox="0 0 420 400" role="img" aria-label="Decision line moving while the neuron learns"></svg>
+      <div class="legend"><span><i class="dot" style="background:var(--blue)"></i>Repaid</span><span><i class="dot" style="background:var(--orange)"></i>Defaulted</span><span>The ringed point is the applicant being checked</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- LEVEL 3 -->
+<section id="v3" data-view="3" class="lv" hidden>
+  <div class="intro">
+    <span class="eyebrow">Level 3 · Where one neuron breaks</span>
+    <h1>A coffee farm. Can one straight line do it?</h1>
+    <p>A cooperative records 17 past harvests with two inputs: average temperature and rainfall, scaled 0 to 10. The harvest is good only when <b>both</b> are moderate, so the good harvests sit in the middle.</p>
+  </div>
+  <div class="guide">
+    <span class="tag">CHALLENGE</span>
+    <p>Get the best score you can. Then explain why 17 of 17 is impossible here.</p>
+    <span class="tag">HOW TO PLAY</span>
+    <ol class="think">
+      <li>Move the three sliders and watch the score and the red rings.</li>
+      <li>Press <b>Let it learn for 50 epochs</b> and compare its score with yours.</li>
+      <li>Look at where the blue dots sit. Could any straight line keep them on one side?</li>
+    </ol>
+  </div>
+  <div class="panel">
+    <h2>Your neuron</h2>
+    <div class="slider"><div class="lab"><span>w₁ · weight of temperature</span><output id="c1o"></output></div><input id="c1" type="range" min="-2" max="2" step="0.1"></div>
+    <div class="slider"><div class="lab"><span>w₂ · weight of rainfall</span><output id="c2o"></output></div><input id="c2" type="range" min="-2" max="2" step="0.1"></div>
+    <div class="slider"><div class="lab"><span>b · bias</span><output id="cbo"></output></div><input id="cb" type="range" min="-10" max="10" step="0.5"></div>
+    <div class="meter"><div class="big" id="acc3">0/17</div><div class="bar"><i id="bar3"></i></div></div>
+    <div class="btns"><button class="primary" id="learn3">Let it learn for 50 epochs</button><button id="reset3">Reset</button></div>
+    <div class="log" id="log3" style="min-height:4em">Your best so far: <b id="best3">–</b></div>
+    <div class="toast" id="t3"><span class="badge">Badge · Line hunter</span><span id="t3txt"></span></div>
+    <div class="hint" id="why3" hidden><b>Why it fails:</b> the good harvests are surrounded on every side. Separating them needs a closed shape, and a single neuron can only cut the map in two with one straight line. The fix is to combine several neurons, each drawing its own line, in a <b>hidden layer</b>. That is what you will do next in TensorFlow Playground.</div>
+    <a class="cta push" id="pglink" target="_blank" rel="noopener" href="https://playground.tensorflow.org/#activation=relu&batchSize=10&dataset=circle&regDataset=reg-plane&learningRate=0.03&regularizationRate=0&noise=0&networkShape=4&seed=0.78326&showTestData=false&discretize=false&percTrainData=50&x=true&y=true&xTimesY=false&xSquared=false&ySquared=false&cosX=false&sinX=false&cosY=false&sinY=false&collectStats=false&problem=classification&initZero=false&hideText=false">Open the circle in TensorFlow Playground ↗</a>
+  </div>
+  <div class="panel">
+    <h2>The 17 harvests on a map</h2>
+    <div class="plotbox">
+      <svg id="plot3" viewBox="0 0 420 400" role="img" aria-label="Map of 17 harvests and the neuron's decision line"></svg>
+      <div class="legend"><span><i class="dot" style="background:var(--blue)"></i>Good harvest</span><span><i class="dot" style="background:var(--orange)"></i>Poor harvest</span><span>Missed points get a red ring</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- LEVEL 4 -->
+<section id="v4" data-view="4" class="lv" hidden>
+  <div class="intro">
+    <span class="eyebrow">Level 4 · How a network sees an image</span>
+    <h1>To a computer, a picture is a grid of numbers.</h1>
+    <p>Each square of the grid is one pixel: 1 if it has ink, 0 if it is empty. The first layer of an image network slides small <b>filters</b> over the picture. A filter is a neuron with 9 weights that lights up when it finds one pattern, such as a vertical edge.</p>
+  </div>
+  <div class="guide">
+    <span class="tag">CHALLENGE</span>
+    <p>Draw a shape that lights up the vertical-edge map but leaves the horizontal-edge map almost dark.</p>
+    <span class="tag">HOW TO PLAY</span>
+    <ol class="think">
+      <li>Click or drag on the grid to draw. Click an inked square to erase it.</li>
+      <li>Watch the two maps: darker blue means a stronger edge found there.</li>
+      <li>Tap a square in a map to see the 9 multiplications behind it.</li>
+    </ol>
+  </div>
+  <div class="panel">
+    <div class="rowhead"><h2>Your image</h2><div class="btns"><button id="ex7">Example: 7</button><button id="exT">Example: T</button><button id="clr">Clear</button></div></div>
+    <div class="grid12" id="g12" aria-label="12 by 12 drawing grid. Click or drag to draw."></div>
+  </div>
+  <div class="panel">
+    <h2>What the first layer finds</h2>
+    <div class="maps">
+      <div class="map"><div class="maphead"><b>Vertical edges</b><div class="kern" id="kv"></div></div><div class="fmap" id="mv"></div><small id="sv" class="hint"></small></div>
+      <div class="map"><div class="maphead"><b>Horizontal edges</b><div class="kern" id="kh"></div></div><div class="fmap" id="mh"></div><small id="sh" class="hint"></small></div>
+    </div>
+    <div class="formula push" id="f4">Tap a square in either map to see the 9 multiplications behind it.</div>
+    <div class="toast" id="t4"><span class="badge">Badge · Pixel vision</span><span>Your shape is mostly vertical strokes. +100 points.</span></div>
+  </div>
+  <div class="panel">
+    <h2>What the computer receives</h2>
+    <div class="numgrid" id="nums"></div>
+  </div>
+  <div class="panel">
+    <h2>Why image networks are big</h2>
+    <div class="facts">
+      <div class="fact"><b>144</b><span>numbers in this 12 × 12 image</span></div>
+      <div class="fact"><b>36,000,000</b><span>numbers in a 12-megapixel phone photo (3 colors per pixel)</span></div>
+      <div class="fact"><b>edges → shapes → objects</b><span>later layers combine edges into eyes, wheels, letters, tumors</span></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="wrap">Session 25 · Neural networks · Data and stories are invented for practice. Colors match TensorFlow Playground: blue for one class, orange for the other. · <a href="../index.html">← Back to the Field Notes collection</a></footer>
+
+<script>
+(function () {
+  "use strict";
+  // ---------- shared state ----------
+  var store = { pts: 0, badges: {} };
+  try { var s = JSON.parse(localStorage.getItem("btn-progress") || "null"); if (s && typeof s.pts === "number") store = s; } catch (e) {}
+  function save() { try { localStorage.setItem("btn-progress", JSON.stringify(store)); } catch (e) {} }
+  function award(id, pts) {
+    if (store.badges[id]) return false;
+    store.badges[id] = true; store.pts += pts; save(); renderScore(); return true;
+  }
+  function renderScore() {
+    document.getElementById("pts").textContent = store.pts;
+    var n = Object.keys(store.badges).length;
+    document.getElementById("bdg").textContent = n + "/4";
+    document.querySelectorAll("nav.levels a").forEach(function (a) {
+      a.querySelector(".done").textContent = store.badges["b" + a.dataset.l] ? " ✓" : "";
+    });
+  }
+  function fmt(v) { var r = Math.round(v * 100) / 100; if (Object.is(r, -0)) r = 0; return (r < 0 ? "−" : "") + String(Math.abs(r)); }
+  function sgnTerm(v) { return v < 0 ? " − " + fmt(-v) : " + " + fmt(v); }
+
+  // ---------- routing ----------
+  function route() {
+    var m = /^#level-([1-4])$/.exec(location.hash); var l = m ? m[1] : "1";
+    document.querySelectorAll("[data-view]").forEach(function (s) { s.hidden = s.dataset.view !== l; });
+    document.querySelectorAll("nav.levels a").forEach(function (a) { if (a.dataset.l === l) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  }
+  window.addEventListener("hashchange", function () { route(); window.scrollTo(0, 0); });
+
+  // ---------- plotting ----------
+  var NS = "http://www.w3.org/2000/svg";
+  var PX = { l: 44, t: 14, w: 360, h: 340 };
+  function sx(x) { return PX.l + x / 10 * PX.w; }
+  function sy(y) { return PX.t + PX.h - y / 10 * PX.h; }
+  function el(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function clipHalf(poly, w1, w2, b, keepPos) {
+    // Sutherland–Hodgman against w1 x + w2 y + b (>=0 if keepPos)
+    function val(p) { var v = w1 * p[0] + w2 * p[1] + b; return keepPos ? v : -v; }
+    var out = [];
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], c = poly[(i + 1) % poly.length], va = val(a), vc = val(c);
+      if (va >= 0) out.push(a);
+      if ((va >= 0) !== (vc >= 0)) { var t = va / (va - vc); out.push([a[0] + t * (c[0] - a[0]), a[1] + t * (c[1] - a[1])]); }
+    }
+    return out;
+  }
+  function drawPlot(svg, data, w1, w2, b, opts) {
+    opts = opts || {};
+    svg.innerHTML = "";
+    var sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    var pos = clipHalf(sq, w1, w2, b, true), neg = clipHalf(sq, w1, w2, b, false);
+    function pp(poly) { return poly.map(function (p) { return sx(p[0]).toFixed(1) + "," + sy(p[1]).toFixed(1); }).join(" "); }
+    if (neg.length > 2) el("polygon", { points: pp(neg), fill: "var(--orange-soft)" }, svg);
+    if (pos.length > 2) el("polygon", { points: pp(pos), fill: "var(--blue-soft)" }, svg);
+    for (var g = 0; g <= 10; g += 2) {
+      el("line", { x1: sx(g), y1: sy(0), x2: sx(g), y2: sy(10), stroke: "var(--line)", "stroke-width": 1, opacity: 0.8 }, svg);
+      el("line", { x1: sx(0), y1: sy(g), x2: sx(10), y2: sy(g), stroke: "var(--line)", "stroke-width": 1, opacity: 0.8 }, svg);
+      var tx = el("text", { x: sx(g), y: sy(0) + 16, "text-anchor": "middle", "font-size": 11, fill: "var(--muted)", "font-family": "IBM Plex Mono, monospace" }, svg); tx.textContent = g;
+      var ty = el("text", { x: sx(0) - 8, y: sy(g) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)", "font-family": "IBM Plex Mono, monospace" }, svg); ty.textContent = g;
+    }
+    el("rect", { x: sx(0), y: sy(10), width: PX.w, height: PX.h, fill: "none", stroke: "var(--muted)", "stroke-width": 1 }, svg);
+    var xl = el("text", { x: sx(5), y: 396, "text-anchor": "middle", "font-size": 12.5, fill: "var(--ink)", "font-weight": 600 }, svg); xl.textContent = opts.xLabel || "";
+    var yl = el("text", { x: 12, y: sy(5), "text-anchor": "middle", "font-size": 12.5, fill: "var(--ink)", "font-weight": 600, transform: "rotate(-90 12 " + sy(5) + ")" }, svg); yl.textContent = opts.yLabel || "";
+    // decision line
+    if (pos.length > 2 && neg.length > 2) {
+      var pts = [];
+      [[0, 0, 10, 0], [10, 0, 10, 10], [10, 10, 0, 10], [0, 10, 0, 0]].forEach(function (e) {
+        var v0 = w1 * e[0] + w2 * e[1] + b, v1 = w1 * e[2] + w2 * e[3] + b;
+        if ((v0 >= 0) !== (v1 >= 0) || v0 === 0) { var t = v0 === v1 ? 0 : v0 / (v0 - v1); pts.push([e[0] + t * (e[2] - e[0]), e[1] + t * (e[3] - e[1])]); }
+      });
+      if (pts.length >= 2) el("line", { x1: sx(pts[0][0]), y1: sy(pts[0][1]), x2: sx(pts[1][0]), y2: sy(pts[1][1]), stroke: "var(--accent)", "stroke-width": 3 }, svg);
+    }
+    data.forEach(function (d, i) {
+      var pred = w1 * d[0] + w2 * d[1] + b >= 0 ? 1 : 0;
+      var cx = sx(d[0]), cy = sy(d[1]);
+      if (opts.markWrong && pred !== d[2]) el("circle", { cx: cx, cy: cy, r: 12, fill: "none", stroke: "var(--bad)", "stroke-width": 2.5 }, svg);
+      if (opts.focus === i) el("circle", { cx: cx, cy: cy, r: 14, fill: "none", stroke: "var(--ink)", "stroke-width": 3 }, svg);
+      var c = el("circle", { cx: cx, cy: cy, r: 7.5, fill: d[2] ? "var(--blue)" : "var(--orange)", stroke: "var(--panel)", "stroke-width": 2 }, svg);
+      if (opts.names) { var t = el("text", { x: cx + 10, y: cy - 8, "font-size": 11, "font-weight": 600, fill: "var(--ink)" }, svg); t.textContent = opts.names[i]; }
+      if (opts.onPick) { c.style.cursor = "pointer"; c.addEventListener("click", function () { opts.onPick(i); }); }
+    });
+  }
+
+  // ---------- Level 1 ----------
+  var LOANS = [[8, 2, 1], [9, 4, 1], [7, 1, 1], [6, 3, 1], [9, 6, 1], [5, 1, 1], [3, 6, 0], [2, 3, 0], [4, 7, 0], [6, 6, 0], [5, 5, 0], [3, 2, 0]];
+  var NAMES = "ABCDEFGHIJKL".split("");
+  var START = { w1: 0.5, w2: 0.5, b: -5 };
+  var s1 = { w1: START.w1, w2: START.w2, b: START.b, sel: 9 };
+  var w1i = document.getElementById("w1"), w2i = document.getElementById("w2"), bi = document.getElementById("b");
+  function setInputs1() { w1i.value = s1.w1; w2i.value = s1.w2; bi.value = s1.b; }
+  function render1() {
+    document.getElementById("w1o").textContent = fmt(s1.w1);
+    document.getElementById("w2o").textContent = fmt(s1.w2);
+    document.getElementById("bo").textContent = fmt(s1.b);
+    var correct = 0, rows = "";
+    LOANS.forEach(function (d, i) {
+      var z = s1.w1 * d[0] + s1.w2 * d[1] + s1.b, p = z >= 0 ? 1 : 0, ok = p === d[2]; if (ok) correct++;
+      rows += '<tr data-i="' + i + '"' + (i === s1.sel ? ' class="sel"' : "") + "><td><b>" + NAMES[i] + '</b></td><td class="num">' + d[0] + '</td><td class="num">' + d[1] + '</td><td class="num">' + fmt(z) + "</td><td>" +
+        (p ? '<span class="pill a">Approve</span>' : '<span class="pill r">Reject</span>') + "</td><td>" + (d[2] ? "Repaid" : "Defaulted") + "</td><td>" + (ok ? '<span class="ok">✓</span>' : '<span class="no">✗</span>') + "</td></tr>";
+    });
+    document.querySelector("#tab1 tbody").innerHTML = rows;
+    document.getElementById("acc1").textContent = correct + "/12";
+    document.getElementById("bar1").style.width = (correct / 12 * 100) + "%";
+    var d = LOANS[s1.sel], z = s1.w1 * d[0] + s1.w2 * d[1] + s1.b;
+    document.getElementById("f1").innerHTML = "Applicant " + NAMES[s1.sel] + ": history " + d[0] + ", debt " + d[1] + "<br>z = <span class=w>" + fmt(s1.w1) + "</span>×" + d[0] + " + <span class=w>" + fmt(s1.w2) + "</span>×" + d[1] + sgnTerm(s1.b) + " = <b>" + fmt(z) + "</b><br>" +
+      (z >= 0 ? '<span class="res-a">z ≥ 0 → Approve</span>' : '<span class="res-r">z &lt; 0 → Reject</span>') + " · real outcome: " + (d[2] ? "repaid" : "defaulted");
+    drawPlot(document.getElementById("plot1"), LOANS, s1.w1, s1.w2, s1.b, { xLabel: "Payment history score", yLabel: "Debt level", names: NAMES, markWrong: true, focus: s1.sel, onPick: function (i) { s1.sel = i; render1(); } });
+    if (correct === 12) { var t = document.getElementById("t1"); t.classList.add("show"); award("b1", 100); }
+  }
+  [w1i, w2i, bi].forEach(function (inp) { inp.addEventListener("input", function () { s1.w1 = +w1i.value; s1.w2 = +w2i.value; s1.b = +bi.value; render1(); }); });
+  document.querySelector("#tab1 tbody").addEventListener("click", function (e) { var tr = e.target.closest("tr"); if (tr) { s1.sel = +tr.dataset.i; render1(); } });
+  document.getElementById("reset1").addEventListener("click", function () { s1.w1 = START.w1; s1.w2 = START.w2; s1.b = START.b; setInputs1(); document.getElementById("t1").classList.remove("show"); render1(); });
+
+  // ---------- Level 2 ----------
+  var ORDER = [0, 6, 1, 7, 2, 8, 3, 9, 4, 10, 5, 11];
+  var LR = 0.05;
+  var s2;
+  function reset2() { s2 = { w1: START.w1, w2: START.w2, b: START.b, k: 0, epoch: 1, mist: [], cur: 0, done: false, focus: -1, stage: -1 }; stopPlay(); render2(null); document.getElementById("t2").classList.remove("show"); document.getElementById("log").innerHTML = 'Press "Next step" to start. The neuron begins with w₁ = 0.5, w₂ = 0.5, b = −5, which treats debt as a good thing.'; }
+  function step2() {
+    if (s2.done) return;
+    var i = ORDER[s2.k], d = LOANS[i];
+    var z = s2.w1 * d[0] + s2.w2 * d[1] + s2.b, p = z >= 0 ? 1 : 0, err = d[2] - p;
+    var errTxt = err === 0 ? "0" : (err > 0 ? "+1" : "−1");
+    var row = function (k, v, cls) { return '<div class="lrow' + (cls ? " " + cls : "") + '"><span class="lk">' + k + '</span><div class="lval">' + v + "</div></div>"; };
+    var txt = '<div class="lhead">Epoch ' + s2.epoch + " · applicant " + NAMES[i] + " (history " + d[0] + ", debt " + d[1] + ")</div>";
+    txt += row("1 Predict", "z = " + fmt(s2.w1) + " × " + d[0] + " + " + fmt(s2.w2) + " × " + d[1] + sgnTerm(s2.b) + " = <b>" + fmt(z) + "</b> → " + (p ? "Approve" : "Reject"));
+    txt += row("2 Error", "real = " + (d[2] ? "repaid (1)" : "defaulted (0)") + " · predicted = " + p + " (" + (p ? "approve" : "reject") + ")<br>error = " + d[2] + " − " + p + " = <b>" + errTxt + "</b>");
+    if (err !== 0) {
+      var n1 = s2.w1 + LR * err * d[0], n2 = s2.w2 + LR * err * d[1], nb = s2.b + LR * err;
+      var e = "(" + errTxt + ")";
+      var eqRow = function (name, old, inp, res, note) {
+        return '<span class="en">' + name + '</span><span>= ' + fmt(old) + " + 0.05 × " + e + " × " + inp + '</span><span class="er">= ' + fmt(res) + "</span>";
+      };
+      txt += row("3 Adjust",
+        '<div class="erule">new weight = old weight + 0.05 × error × input</div>' +
+        '<div class="eqs">' +
+          eqRow("w₁", s2.w1, d[0], n1, "input = history " + d[0]) +
+          eqRow("w₂", s2.w2, d[1], n2, "input = debt " + d[1]) +
+          eqRow("b", s2.b, 1, nb, "input = always 1") +
+        '</div><div class="enote">inputs: history ' + d[0] + " for w₁ · debt " + d[1] + " for w₂ · always 1 for b</div>", "bad");
+      s2.w1 = n1; s2.w2 = n2; s2.b = nb; s2.cur++;
+    } else {
+      txt += row("3 Adjust", "error = 0, so nothing changes", "good");
+    }
+    s2.k++;
+    if (s2.k === ORDER.length) {
+      s2.mist.push(s2.cur);
+      txt += row("4 Repeat", "epoch " + s2.epoch + " finished with " + s2.cur + " mistake" + (s2.cur === 1 ? "" : "s"));
+      if (s2.cur === 0) {
+        s2.done = true; stopPlay();
+        document.getElementById("t2txt").textContent = "No mistakes in epoch " + s2.epoch + ". Final weights: history " + fmt(s2.w1) + ", debt " + fmt(s2.w2) + ", bias " + fmt(s2.b) + ". The neuron discovered on its own that debt is a bad sign. +100 points.";
+        document.getElementById("t2").classList.add("show"); award("b2", 100);
+      }
+      s2.k = 0; s2.cur = 0; if (!s2.done) s2.epoch++;
+    } else {
+      txt += row("4 Repeat", "next applicant");
+    }
+    s2.focus = i; s2.stage = s2.k === 0 ? 3 : (err !== 0 ? 2 : 1);
+    render2(txt);
+  }
+  function render2(txt) {
+    if (txt) document.getElementById("log").innerHTML = txt;
+    document.querySelectorAll("#loop div").forEach(function (d) { d.classList.toggle("on", +d.dataset.s === s2.stage); });
+    drawPlot(document.getElementById("plot2"), LOANS, s2.w1, s2.w2, s2.b, { xLabel: "Payment history score", yLabel: "Debt level", names: NAMES, focus: s2.focus, markWrong: false });
+    var mx = Math.max(6, Math.max.apply(null, s2.mist.concat([0])));
+    document.getElementById("mist").innerHTML = s2.mist.map(function (m, i) { return '<div class="col"><small>' + m + '</small><i class="' + (m === 0 ? "zero" : "") + '" style="height:' + (m / mx * 70) + 'px"></i></div>'; }).join("");
+    document.getElementById("eplab").textContent = "epoch " + s2.mist.length;
+    document.getElementById("f2").innerHTML = "Current weights · w₁ (history) = <span class=w>" + fmt(s2.w1) + "</span> · w₂ (debt) = <span class=w>" + fmt(s2.w2) + "</span> · b = <span class=w>" + fmt(s2.b) + "</span>";
+    document.getElementById("step").disabled = s2.done; document.getElementById("play").disabled = s2.done; document.getElementById("finish").disabled = s2.done;
+  }
+  var timer = null;
+  function stopPlay() { if (timer) { clearInterval(timer); timer = null; } document.getElementById("play").textContent = "Play"; }
+  document.getElementById("step").addEventListener("click", function () { stopPlay(); step2(); });
+  document.getElementById("play").addEventListener("click", function () {
+    if (timer) { stopPlay(); return; }
+    this.textContent = "Pause"; timer = setInterval(step2, 600);
+  });
+  document.getElementById("finish").addEventListener("click", function () { stopPlay(); var guard = 0; while (!s2.done && guard++ < 2000) step2(); });
+  document.getElementById("reset2").addEventListener("click", reset2);
+
+  // ---------- Level 3 ----------
+  var FARM = [[5, 5, 1], [4, 5, 1], [6, 5, 1], [5, 4, 1], [5, 6, 1], [4, 4, 1], [6, 6, 1], [4, 6, 1], [6, 4, 1], [1, 1, 0], [1, 5, 0], [1, 9, 0], [5, 1, 0], [5, 9, 0], [9, 1, 0], [9, 5, 0], [9, 9, 0]];
+  var s3 = { w1: 0.5, w2: 0.5, b: -5, best: 0 };
+  var c1 = document.getElementById("c1"), c2 = document.getElementById("c2"), cb = document.getElementById("cb");
+  function count3(w1, w2, b) { return FARM.filter(function (d) { return (w1 * d[0] + w2 * d[1] + b >= 0 ? 1 : 0) === d[2]; }).length; }
+  function render3() {
+    document.getElementById("c1o").textContent = fmt(s3.w1); document.getElementById("c2o").textContent = fmt(s3.w2); document.getElementById("cbo").textContent = fmt(s3.b);
+    var n = count3(s3.w1, s3.w2, s3.b);
+    s3.best = Math.max(s3.best, n);
+    document.getElementById("acc3").textContent = n + "/17"; document.getElementById("bar3").style.width = (n / 17 * 100) + "%";
+    document.getElementById("best3").textContent = s3.best + " of 17";
+    drawPlot(document.getElementById("plot3"), FARM, s3.w1, s3.w2, s3.b, { xLabel: "Temperature (scaled 0–10)", yLabel: "Rainfall (scaled 0–10)", markWrong: true });
+    var t3 = document.getElementById("t3");
+    if (n >= 12) {
+      var first = !store.badges.b3;
+      award("b3", 100);
+      document.getElementById("t3txt").textContent = (n === 13
+        ? "Best possible line: 13 of 17. No straight line can do better here, because one neuron can draw only one straight line."
+        : "Good line: 12 of 17. The best any straight line can do here is 13, because one neuron can draw only one straight line.") + (first ? " +100 points." : "");
+      t3.classList.add("show");
+      document.getElementById("why3").hidden = false;
+    } else {
+      t3.classList.remove("show");
+    }
+  }
+  [c1, c2, cb].forEach(function (inp) { inp.addEventListener("input", function () { s3.w1 = +c1.value; s3.w2 = +c2.value; s3.b = +cb.value; render3(); }); });
+  document.getElementById("learn3").addEventListener("click", function () {
+    var w1 = s3.w1, w2 = s3.w2, b = s3.b, bestW = null, bestN = -1, hist = [];
+    for (var ep = 0; ep < 50; ep++) {
+      var m = 0;
+      FARM.forEach(function (d) { var p = w1 * d[0] + w2 * d[1] + b >= 0 ? 1 : 0, e = d[2] - p; if (e) { m++; w1 += LR * e * d[0]; w2 += LR * e * d[1]; b += LR * e; } });
+      hist.push(m);
+      var n = count3(w1, w2, b); if (n > bestN) { bestN = n; bestW = [w1, w2, b]; }
+    }
+    s3.w1 = Math.max(-2, Math.min(2, bestW[0])); s3.w2 = Math.max(-2, Math.min(2, bestW[1])); s3.b = Math.max(-10, Math.min(10, bestW[2]));
+    c1.value = s3.w1; c2.value = s3.w2; cb.value = s3.b;
+    render3();
+    document.getElementById("log3").innerHTML = "After 50 epochs the neuron still makes mistakes in every epoch (last 5 epochs: " + hist.slice(-5).join(", ") + " mistakes). It never reaches zero. The best weights it passed through score " + bestN + " of 17. Can you beat the machine with the sliders?<br>Your best so far: <b>" + s3.best + " of 17</b>";
+    document.getElementById("why3").hidden = false;
+  });
+  document.getElementById("reset3").addEventListener("click", function () { s3.w1 = 0.5; s3.w2 = 0.5; s3.b = -5; c1.value = 0.5; c2.value = 0.5; cb.value = -5; document.getElementById("log3").innerHTML = 'Your best so far: <b id="best3">' + s3.best + ' of 17</b>'; render3(); });
+
+  // ---------- Level 4 ----------
+  var N = 12, img = [];
+  for (var r = 0; r < N; r++) { img.push([]); for (var c = 0; c < N; c++) img[r].push(0); }
+  var KV = [[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], KH = [[-1, -1, -1], [0, 0, 0], [1, 1, 1]];
+  var g12 = document.getElementById("g12");
+  for (var i = 0; i < N * N; i++) { var cell = document.createElement("div"); cell.dataset.i = i; g12.appendChild(cell); }
+  var painting = false, paintVal = 1;
+  function cellAt(e) { var t = document.elementFromPoint(e.clientX, e.clientY); return t && t.parentNode === g12 ? t : null; }
+  g12.addEventListener("pointerdown", function (e) { var t = cellAt(e); if (!t) return; painting = true; var k = +t.dataset.i; paintVal = img[Math.floor(k / N)][k % N] ? 0 : 1; paint(t); e.preventDefault(); });
+  g12.addEventListener("pointermove", function (e) { if (painting) { var t = cellAt(e); if (t) paint(t); } });
+  window.addEventListener("pointerup", function () { painting = false; });
+  function paint(t) { var k = +t.dataset.i, r = Math.floor(k / N), c = k % N; if (img[r][c] !== paintVal) { img[r][c] = paintVal; render4(); } }
+  function conv(K) { var out = []; for (var r = 0; r < N - 2; r++) { out.push([]); for (var c = 0; c < N - 2; c++) { var s = 0; for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) s += K[a][b] * img[r + a][c + b]; out[r].push(s); } } return out; }
+  function kernHTML(K) { return K.map(function (row) { return row.map(function (v) { return '<span class="' + (v > 0 ? "p" : v < 0 ? "n" : "") + '">' + (v > 0 ? "+" + v : v < 0 ? "−" + (-v) : "0") + "</span>"; }).join(""); }).join(""); }
+  document.getElementById("kv").innerHTML = kernHTML(KV); document.getElementById("kh").innerHTML = kernHTML(KH);
+  var hiWin = null;
+  function drawMap(id, M, K, name) {
+    var box = document.getElementById(id), html = "", total = 0;
+    for (var r = 0; r < N - 2; r++) for (var c = 0; c < N - 2; c++) {
+      var v = Math.abs(M[r][c]); total += v;
+      var a = Math.min(1, v / 3);
+      html += '<div data-r="' + r + '" data-c="' + c + '" title="' + M[r][c] + '" style="background:' + (a > 0 ? "color-mix(in srgb, var(--blue) " + Math.round(a * 100) + "%, var(--chip))" : "var(--chip)") + '"></div>';
+    }
+    box.innerHTML = html;
+    box.onclick = function (e) {
+      var t = e.target.closest("[data-r]"); if (!t) return;
+      var r = +t.dataset.r, c = +t.dataset.c, parts = [], s = 0;
+      for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) { if (K[a][b] !== 0) { parts.push((K[a][b] > 0 ? "+" : "−") + "1×" + img[r + a][c + b]); s += K[a][b] * img[r + a][c + b]; } }
+      hiWin = [r, c]; markWin();
+      document.getElementById("f4").innerHTML = name + " filter at row " + (r + 1) + ", column " + (c + 1) + " (orange box on your image):<br>" + parts.join(" ") + " = <b>" + s + "</b>" + (s === 0 ? " → nothing found here" : " → edge found (strength " + Math.abs(s) + " of 3)");
+    };
+    return total;
+  }
+  function markWin() { g12.querySelectorAll(".win").forEach(function (d) { d.classList.remove("win"); }); if (!hiWin) return; for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) g12.children[(hiWin[0] + a) * N + hiWin[1] + b].classList.add("win"); }
+  function render4() {
+    for (var k = 0; k < N * N; k++) g12.children[k].classList.toggle("on", !!img[Math.floor(k / N)][k % N]);
+    document.getElementById("nums").innerHTML = img.map(function (row) { return row.map(function (v) { return v ? "<b>1</b>" : "<span>0</span>"; }).join(" "); }).join("\n");
+    var tv = drawMap("mv", conv(KV), KV, "Vertical-edge"), th = drawMap("mh", conv(KH), KH, "Horizontal-edge");
+    document.getElementById("sv").textContent = "Total signal: " + tv; document.getElementById("sh").textContent = "Total signal: " + th;
+    markWin();
+    var inked = img.reduce(function (s, row) { return s + row.reduce(function (a, b) { return a + b; }, 0); }, 0);
+    if (inked >= 6 && tv >= 12 && th <= tv / 4) { document.getElementById("t4").classList.add("show"); award("b4", 100); }
+  }
+  function load(shape) {
+    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) img[r][c] = 0;
+    if (shape === "7") { for (var c = 2; c <= 9; c++) img[2][c] = 1; for (var r = 3; r <= 9; r++) img[r][Math.round(9 - (r - 3) * 0.6)] = 1; }
+    if (shape === "T") { for (var c = 2; c <= 9; c++) img[2][c] = 1; for (var r = 3; r <= 9; r++) { img[r][5] = 1; img[r][6] = 1; } }
+    hiWin = null; render4();
+  }
+  document.getElementById("ex7").addEventListener("click", function () { load("7"); });
+  document.getElementById("exT").addEventListener("click", function () { load("T"); });
+  document.getElementById("clr").addEventListener("click", function () { load(""); document.getElementById("f4").textContent = "Tap a square in either map to see the 9 multiplications behind it."; });
+
+  // ---------- boot ----------
+  setInputs1(); c1.value = s3.w1; c2.value = s3.w2; cb.value = s3.b;
+  render1(); reset2(); render3(); load("T"); renderScore(); route();
+})();
+</script>
+
+</body>
+</html>
