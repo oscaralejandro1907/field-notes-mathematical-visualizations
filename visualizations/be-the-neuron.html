@@ -237,7 +237,7 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     <div class="slider"><div class="lab"><span>b · bias (how strict the bank is)</span><output id="bo"></output></div><input id="b" type="range" min="-10" max="10" step="0.5"><small>More negative means the neuron needs stronger evidence before it approves.</small></div>
     <div class="formula" id="f1" aria-live="polite"></div>
     <div class="push meter"><div class="big" id="acc1">6/12</div><div class="bar"><i id="bar1"></i></div><button id="reset1">Reset weights</button></div>
-    <div class="toast" id="t1"><span class="badge">Badge · Loan officer</span><span>All 12 correct. +100 points. Look at your weights: what did the neuron learn about debt?</span></div>
+    <div class="toast" id="t1"><span class="badge">Badge · Loan officer</span><span id="t1txt"></span></div>
   </div>
   <div class="panel">
     <h2>The 12 applicants on a map</h2>
@@ -361,7 +361,7 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
       <div class="map"><div class="maphead"><b>Horizontal edges</b><div class="kern" id="kh"></div></div><div class="fmap" id="mh"></div><small id="sh" class="hint"></small></div>
     </div>
     <div class="formula push" id="f4">Tap a square in either map to see the 9 multiplications behind it.</div>
-    <div class="toast" id="t4"><span class="badge">Badge · Pixel vision</span><span>Your shape is mostly vertical strokes. +100 points.</span></div>
+    <div class="toast" id="t4"><span class="badge">Badge · Pixel vision</span><span id="t4txt"></span></div>
   </div>
   <div class="panel">
     <h2>What the computer receives</h2>
@@ -488,7 +488,14 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     document.getElementById("f1").innerHTML = "Applicant " + NAMES[s1.sel] + ": history " + d[0] + ", debt " + d[1] + "<br>z = <span class=w>" + fmt(s1.w1) + "</span>×" + d[0] + " + <span class=w>" + fmt(s1.w2) + "</span>×" + d[1] + sgnTerm(s1.b) + " = <b>" + fmt(z) + "</b><br>" +
       (z >= 0 ? '<span class="res-a">z ≥ 0 → Approve</span>' : '<span class="res-r">z &lt; 0 → Reject</span>') + " · real outcome: " + (d[2] ? "repaid" : "defaulted");
     drawPlot(document.getElementById("plot1"), LOANS, s1.w1, s1.w2, s1.b, { xLabel: "Payment history score", yLabel: "Debt level", names: NAMES, markWrong: true, focus: s1.sel, onPick: function (i) { s1.sel = i; render1(); } });
-    if (correct === 12) { var t = document.getElementById("t1"); t.classList.add("show"); award("b1", 100); }
+    var t1 = document.getElementById("t1");
+    if (correct === 12) {
+      var first1 = !store.badges.b1; award("b1", 100);
+      document.getElementById("t1txt").textContent = "All 12 correct." + (first1 ? " +100 points." : "") + " Look at your weights: what did the neuron learn about debt?";
+      t1.classList.add("show");
+    } else {
+      t1.classList.remove("show");
+    }
   }
   [w1i, w2i, bi].forEach(function (inp) { inp.addEventListener("input", function () { s1.w1 = +w1i.value; s1.w2 = +w2i.value; s1.b = +bi.value; render1(); }); });
   document.querySelector("#tab1 tbody").addEventListener("click", function (e) { var tr = e.target.closest("tr"); if (tr) { s1.sel = +tr.dataset.i; render1(); } });
@@ -644,7 +651,14 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     document.getElementById("sv").textContent = "Total signal: " + tv; document.getElementById("sh").textContent = "Total signal: " + th;
     markWin();
     var inked = img.reduce(function (s, row) { return s + row.reduce(function (a, b) { return a + b; }, 0); }, 0);
-    if (inked >= 6 && tv >= 12 && th <= tv / 4) { document.getElementById("t4").classList.add("show"); award("b4", 100); }
+    var t4 = document.getElementById("t4");
+    if (inked >= 6 && tv >= 12 && th <= tv / 4) {
+      var first4 = !store.badges.b4; award("b4", 100);
+      document.getElementById("t4txt").textContent = "Your shape is mostly vertical strokes." + (first4 ? " +100 points." : "");
+      t4.classList.add("show");
+    } else {
+      t4.classList.remove("show");
+    }
   }
   function load(shape) {
     for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) img[r][c] = 0;
