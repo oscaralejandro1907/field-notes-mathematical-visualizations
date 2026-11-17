@@ -275,7 +275,6 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     <div class="btns">
       <button class="primary" id="step">Next step</button>
       <button id="play">Play</button>
-      <button id="finish">Skip to the end</button>
       <button id="reset2">Start over</button>
     </div>
     <div class="formula" id="f2"></div>
@@ -556,7 +555,7 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     document.getElementById("mist").innerHTML = s2.mist.map(function (m, i) { return '<div class="col"><small>' + m + '</small><i class="' + (m === 0 ? "zero" : "") + '" style="height:' + (m / mx * 70) + 'px"></i></div>'; }).join("");
     document.getElementById("eplab").textContent = "epoch " + s2.mist.length;
     document.getElementById("f2").innerHTML = "Current weights · w₁ (history) = <span class=w>" + fmt(s2.w1) + "</span> · w₂ (debt) = <span class=w>" + fmt(s2.w2) + "</span> · b = <span class=w>" + fmt(s2.b) + "</span>";
-    document.getElementById("step").disabled = s2.done; document.getElementById("play").disabled = s2.done; document.getElementById("finish").disabled = s2.done;
+    document.getElementById("step").disabled = s2.done; document.getElementById("play").disabled = s2.done;
   }
   var timer = null;
   function stopPlay() { if (timer) { clearInterval(timer); timer = null; } document.getElementById("play").textContent = "Play"; }
@@ -565,7 +564,6 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 0 30px; }
     if (timer) { stopPlay(); return; }
     this.textContent = "Pause"; timer = setInterval(step2, 600);
   });
-  document.getElementById("finish").addEventListener("click", function () { stopPlay(); var guard = 0; while (!s2.done && guard++ < 2000) step2(); });
   document.getElementById("reset2").addEventListener("click", reset2);
 
   // ---------- Level 3 ----------
